@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Path to 95 - Elevate</title>
+    <meta name="description" content="Personal fitness and diet tracker to hit 95kg.">
+    <meta name="theme-color" content="#0d0e12">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body class="mode-alexandria">
+    <div id="app" class="app-container">
+        <!-- Header -->
+        <header class="glass-header">
+            <div>
+                <h1>Path to 95 🚀</h1>
+                <p id="header-date" class="header-date"></p>
+            </div>
+            <div class="header-actions">
+                <button id="streak-badge" class="badge accent">🔥 <span id="streak-count">0</span> Days</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+            
+            <!-- Dashboard Tab -->
+            <section id="view-dashboard" class="view active">
+                <div class="quote-card glass-card fade-in">
+                    <p id="motivational-quote" class="quote-text">"One more day closer to free diving stamina."</p>
+                </div>
+                
+                <div class="glass-card fade-in">
+                    <h2>Today's Progress</h2>
+                    <div class="checklist">
+                        <div class="check-item"><span class="icon">🚶</span> Walk 5km / Cycle <span class="status" id="dash-walk">❌</span></div>
+                        <div class="check-item"><span class="icon">🥗</span> Diet on plan <span class="status" id="dash-diet">❌</span></div>
+                        <div class="check-item"><span class="icon">🥩</span> Protein Hit (140g+) <span class="status" id="dash-protein">❌</span></div>
+                        <div class="check-item"><span class="icon">🏋️</span> Strength Work <span class="status" id="dash-strength">❌</span></div>
+                        <div class="check-item alexandria-only"><span class="icon">🏊</span> Swim Session <span class="status" id="dash-swim">❌</span></div>
+                    </div>
+                </div>
+
+                <div class="quick-log glass-card fade-in">
+                    <h2>Quick Actions</h2>
+                    <div class="input-group row-align">
+                        <label>Morning Weight</label>
+                        <div class="flex-row">
+                            <input type="number" id="quick-weight" step="0.1" placeholder="kg" class="w-24">
+                            <button class="btn btn-sm" id="btn-quick-weight">Log</button>
+                        </div>
+                    </div>
+                    <div class="water-tracker mt-4">
+                        <label>Water (0.5L increments) <span id="water-label">0 L</span></label>
+                        <div class="water-cups" id="water-cups">
+                            <button class="cup" data-vol="0.5">💧</button>
+                            <button class="cup" data-vol="1.0">💧</button>
+                            <button class="cup" data-vol="1.5">💧</button>
+                            <button class="cup" data-vol="2.0">💧</button>
+                            <button class="cup" data-vol="2.5">💧</button>
+                            <button class="cup" data-vol="3.0">💧</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card fade-in">
+                    <h2>Next Milestone</h2>
+                    <div class="milestone-container">
+                        <div class="milestone-labels">
+                            <span id="current-weight-display">-- kg</span>
+                            <span id="next-milestone-display">-- kg</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill gradient-primary" id="milestone-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center mt-2 text-sm text-secondary" id="milestone-text">0% there! Keep pushing.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Daily Log Tab -->
+            <section id="view-log" class="view">
+                <div class="glass-card">
+                    <h2 class="mb-4">Log Today</h2>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Date (Auto)</label>
+                            <input type="date" id="log-date" readonly>
+                        </div>
+                        <div class="input-group">
+                            <label>Assigned Meal Plan</label>
+                            <p id="log-assigned-meal" class="meal-ref">Loading...</p>
+                        </div>
+                        
+                        <hr class="divider">
+                        
+                        <div class="input-group">
+                            <label>Weight (kg)</label>
+                            <input type="number" id="log-weight" step="0.1" placeholder="e.g. 115.5">
+                        </div>
+                        <div class="input-group">
+                            <label>Walk Dist (km) / Cycle (min)</label>
+                            <input type="number" id="log-cardio" step="0.1" placeholder="e.g. 5">
+                        </div>
+                        
+                        <div class="toggle-group mt-2">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-diet">
+                                <span class="slider"></span>
+                                <span class="label-text">Diet on plan?</span>
+                            </label>
+                        </div>
+                        <div class="toggle-group mt-2">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-protein">
+                                <span class="slider"></span>
+                                <span class="label-text">Protein hit (140g+)?</span>
+                            </label>
+                        </div>
+                        <div class="toggle-group mt-2">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-strength">
+                                <span class="slider"></span>
+                                <span class="label-text">Strength session done?</span>
+                            </label>
+                            <div class="sub-input hidden mt-2" id="strength-options">
+                                <select id="log-strength-type" class="w-full">
+                                    <option value="gym">Gym</option>
+                                    <option value="home">Home bodyweight</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="toggle-group mt-2 alexandria-only">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-swim">
+                                <span class="slider"></span>
+                                <span class="label-text">Swim session?</span>
+                            </label>
+                        </div>
+                        
+                        <div class="input-group mt-2">
+                            <label>Notes</label>
+                            <textarea id="log-notes" rows="3" placeholder="How did you feel today?"></textarea>
+                        </div>
+                        
+                        <button class="btn btn-primary btn-glow mt-4" id="btn-save-log">Save Log (Offline Ready)</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Progress Tab -->
+            <section id="view-progress" class="view">
+                <div class="row-cards">
+                    <div class="stat-card glass-card">
+                        <div class="stat-value text-gradient" id="stat-diet-days">0/7</div>
+                        <div class="stat-label">Diet Days</div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-value text-gradient" id="stat-cardio-days">0/7</div>
+                        <div class="stat-label">Cardio Days</div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-value text-gradient" id="stat-compliance">0%</div>
+                        <div class="stat-label">Compliance</div>
+                    </div>
+                </div>
+                
+                <div class="glass-card mt-4">
+                    <h2>Weekly Weight Trend</h2>
+                    <p class="text-sm text-secondary mb-2" id="weekly-weight-change">Avg this week: -- kg (--)</p>
+                    <div class="chart-container" id="weight-chart">
+                        <!-- Simple CSS/JS generated bars -->
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>The Path to 95 kg</h2>
+                    <div class="milestones-vertical" id="milestones-path">
+                        <!-- JS generated -->
+                    </div>
+                </div>
+                
+                <button class="btn btn-secondary w-full mt-4" id="btn-export">💾 Export Data (CSV Backup)</button>
+            </section>
+
+            <!-- Meals Tab -->
+            <section id="view-meals" class="view">
+                <div class="glass-card">
+                    <h2 class="mb-2">Weekly Base Plan</h2>
+                    <p class="text-sm text-secondary mb-4">No dinner planned. Stick to the macros: 140-170g protein, 1800-2200 kcal.</p>
+                    <div class="meals-accordion" id="meals-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Goals / Settings Tab -->
+            <section id="view-goals" class="view">
+                <div class="glass-card mode-bg">
+                    <h2>My Why</h2>
+                    <ul class="why-list mt-4">
+                        <li>🌊 <strong>Free diving:</strong> Needs stamina and breath control.</li>
+                        <li>🏄‍♂️ <strong>Kitesurfing:</strong> Balance, core, and upper body strength.</li>
+                        <li>🎣 <strong>Spearfishing & Hiking:</strong> Need endurance.</li>
+                    </ul>
+                    <div class="phase-banner mt-4">
+                        <span id="current-phase-label">Phase 1</span>
+                        <p class="text-sm mt-1" id="current-phase-desc">Cardio base (walk/cycle daily until 110kg).</p>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>Application Settings</h2>
+                    <div class="form-grid mt-4">
+                        <div class="input-group row-align">
+                            <label>Alexandria Mode <br><span class="text-sm font-normal text-secondary">Enables swimming tracking</span></label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="settings-mode">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <hr class="divider">
+                        <div class="input-group">
+                            <label>Daily Calorie Target</label>
+                            <input type="number" id="settings-kcal" value="2000">
+                        </div>
+                        <div class="input-group">
+                            <label>Daily Protein Target (g)</label>
+                            <input type="number" id="settings-protein" value="140">
+                        </div>
+                        <div class="input-group">
+                            <label>Starting Weight (kg)</label>
+                            <input type="number" id="settings-start-weight" step="0.1">
+                        </div>
+                        <button class="btn btn-primary mt-2" id="btn-save-settings">Save Settings</button>
+                        <button class="btn btn-danger mt-6" id="btn-reset-data">⚠️ Reset All Data</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav glass-nav">
+            <button class="nav-item active" data-target="view-dashboard">
+                <span class="icon">🏠</span>
+                <span class="label">Home</span>
+            </button>
+            <button class="nav-item" data-target="view-log">
+                <span class="icon">📝</span>
+                <span class="label">Log</span>
+            </button>
+            <button class="nav-item" data-target="view-progress">
+                <span class="icon">📈</span>
+                <span class="label">Progress</span>
+            </button>
+            <button class="nav-item" data-target="view-meals">
+                <span class="icon">🍎</span>
+                <span class="label">Meals</span>
+            </button>
+            <button class="nav-item" data-target="view-goals">
+                <span class="icon">⚙️</span>
+                <span class="label">More</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Modals or Overlays -->
+    <div id="toast" class="toast hidden">Saved</div>
+
+    <script src="app.js"></script>
+</body>
+</html>
