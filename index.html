@@ -35,15 +35,15 @@
             <!-- Dashboard Tab -->
             <section id="view-dashboard" class="view active">
                 <div class="quote-card glass-card fade-in">
-                    <p id="motivational-quote" class="quote-text">"One more day closer to free diving stamina."</p>
+                    <p id="motivational-quote" class="quote-text">"One more day closer to free diving and kitesurfing."</p>
                 </div>
                 
                 <div class="glass-card fade-in">
                     <h2>Today's Progress</h2>
                     <div class="checklist">
-                        <div class="check-item"><span class="icon">🚶</span> Walk 5km / Cycle <span class="status" id="dash-walk">❌</span></div>
+                        <div class="check-item"><span class="icon">🚶</span> Walk 5km / Cycle 45-60m <span class="status" id="dash-walk">❌</span></div>
                         <div class="check-item"><span class="icon">🥗</span> Diet on plan <span class="status" id="dash-diet">❌</span></div>
-                        <div class="check-item"><span class="icon">🥩</span> Protein Hit (140g+) <span class="status" id="dash-protein">❌</span></div>
+                        <div class="check-item"><span class="icon">🥩</span> Protein Hit (150-180g) <span class="status" id="dash-protein">❌</span></div>
                         <div class="check-item"><span class="icon">🏋️</span> Strength Work <span class="status" id="dash-strength">❌</span></div>
                         <div class="check-item alexandria-only"><span class="icon">🏊</span> Swim Session <span class="status" id="dash-swim">❌</span></div>
                     </div>
@@ -75,7 +75,7 @@
                     <h2>Next Milestone</h2>
                     <div class="milestone-container">
                         <div class="milestone-labels">
-                            <span id="current-weight-display">-- kg</span>
+                            <span><span id="current-weight-display">-- kg</span> | BF: <span id="current-bf-display">37.5%</span></span>
                             <span id="next-milestone-display">-- kg</span>
                         </div>
                         <div class="progress-track">
@@ -107,10 +107,21 @@
                             <input type="number" id="log-weight" step="0.1" placeholder="e.g. 115.5">
                         </div>
                         <div class="input-group">
-                            <label>Walk Dist (km) / Cycle (min)</label>
-                            <input type="number" id="log-cardio" step="0.1" placeholder="e.g. 5">
+                            <label>Cardio (Walk km or Cycle min)</label>
+                            <input type="number" id="log-cardio" step="0.1" placeholder="e.g. 5 or 45">
                         </div>
                         
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Body Fat % (Optional)</label>
+                                <input type="number" id="log-bf" step="0.1" placeholder="e.g. 37.5">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Muscle % (Optional)</label>
+                                <input type="number" id="log-muscle" step="0.1" placeholder="e.g. 24.1">
+                            </div>
+                        </div>
+
                         <div class="toggle-group mt-2">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="log-diet">
@@ -122,7 +133,7 @@
                             <label class="toggle-switch">
                                 <input type="checkbox" id="log-protein">
                                 <span class="slider"></span>
-                                <span class="label-text">Protein hit (140g+)?</span>
+                                <span class="label-text">Protein hit (150-180g)?</span>
                             </label>
                         </div>
                         <div class="toggle-group mt-2">
@@ -172,6 +183,20 @@
                         <div class="stat-label">Compliance</div>
                     </div>
                 </div>
+                <div class="row-cards mt-2">
+                    <div class="stat-card glass-card">
+                        <div class="stat-value text-gradient" id="stat-avg-loss">-- kg</div>
+                        <div class="stat-label">7d Wt Change</div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-value text-gradient" id="stat-strength-days">0/7</div>
+                        <div class="stat-label">Strength</div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-value text-gradient" id="stat-muscle">--%</div>
+                        <div class="stat-label">Muscle</div>
+                    </div>
+                </div>
                 
                 <div class="glass-card mt-4">
                     <h2>Weekly Weight Trend</h2>
@@ -194,28 +219,57 @@
             <!-- Meals Tab -->
             <section id="view-meals" class="view">
                 <div class="glass-card">
-                    <h2 class="mb-2">Weekly Base Plan</h2>
-                    <p class="text-sm text-secondary mb-4">No dinner planned. Stick to the macros: 140-170g protein, 1800-2200 kcal.</p>
-                    <div class="meals-accordion" id="meals-list">
-                        <!-- Populated by JS -->
+                    <h2 class="mb-2">Daily High-Volume Plan</h2>
+                    <p class="text-sm text-secondary mb-4">No dinner planned. Stick to the macros: 150-180g protein, 1800-2200 kcal.</p>
+                    <div class="meals-accordion">
+                        <div class="plan-day active">
+                            <div class="plan-body" style="max-height: none; opacity: 1; padding: 1rem 0;">
+                                <ul>
+                                    <li><span>Br</span> Eggs + yogurt + cucumber + carrot + pepper + mushrooms + apple</li>
+                                    <li><span>Lu</span> Chicken breast + small/medium basmati rice + big vegetable soup</li>
+                                    <li><span>Sn</span> Fruits and vegetables</li>
+                                    <li><span>Di</span> 🛑 No Dinner (Early Sleep)</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Goals / Settings Tab -->
-            <section id="view-goals" class="view">
-                <div class="glass-card mode-bg">
-                    <h2>My Why</h2>
-                    <ul class="why-list mt-4">
-                        <li>🌊 <strong>Free diving:</strong> Needs stamina and breath control.</li>
-                        <li>🏄‍♂️ <strong>Kitesurfing:</strong> Balance, core, and upper body strength.</li>
-                        <li>🎣 <strong>Spearfishing & Hiking:</strong> Need endurance.</li>
-                    </ul>
-                    <div class="phase-banner mt-4">
-                        <span id="current-phase-label">Phase 1</span>
-                        <p class="text-sm mt-1" id="current-phase-desc">Cardio base (walk/cycle daily until 110kg).</p>
-                    </div>
+            <!-- Safety Tab [NEW] -->
+            <section id="view-safety" class="view">
+                <div class="glass-card" style="border: 1px solid var(--danger); background: rgba(50, 20, 20, 0.4);">
+                    <h2 style="color: var(--danger);">⚠️ Safety Warning & Guidance</h2>
+                    <p class="text-sm mt-2">You are currently eating very high-volume, low-calorie meals and feeling great (no hunger or tiredness).</p>
+                    <p class="text-sm mt-2">It is normal and common to lose faster than 0.8 kg per week in the first 4–8 weeks (sometimes 1.0 – 1.5 kg/week) due to water weight and big deficit.</p>
+                    <p class="text-sm mt-2 font-bold" style="color: var(--danger);">Warning: Losing more than 1.2 kg per week for many weeks in a row can risk losing muscle mass, which we want to protect for strength, free diving, and kitesurfing.</p>
                 </div>
+
+                <div class="glass-card">
+                    <h2>When to Increase Food</h2>
+                    <ul class="why-list mt-4">
+                        <li>If your weekly average weight loss is consistently over 1.2 kg per week for 2–3 weeks AND you still feel good → Slightly increase calories.</li>
+                        <li><strong>How to increase:</strong> Add 1 extra egg at breakfast, bigger Greek yogurt, increase chicken breast to 200-250g at lunch, or add one whey protein shake as snack.</li>
+                        <li><strong>Goal:</strong> Bring weekly loss back to 0.7 – 1.0 kg per week.</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card">
+                    <h2>How to Track Safely & Protect Muscle</h2>
+                    <ul class="why-list mt-4">
+                        <li>Weigh yourself every morning after bathroom, before eating (same conditions).</li>
+                        <li>Always track <strong>weekly average weight</strong>, not daily fluctuations.</li>
+                        <li>Do InBody scan every 4 weeks under same conditions.</li>
+                        <li><strong>Watch for signs:</strong> sudden increase in hunger, tiredness, poor strength performance, or stalled weight loss → increase food immediately.</li>
+                        <li>Keep strength training 3x per week — this helps protect muscle.</li>
+                        <li>Protein must stay high (150-180g) even when increasing calories.</li>
+                        <li><strong>Prioritize:</strong> Walk/Cycle + Protein + Strength > Perfect calorie counting.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="view-settings" class="view">
 
                 <div class="glass-card mt-4">
                     <h2>Application Settings</h2>
@@ -247,7 +301,6 @@
             </section>
         </main>
 
-        <!-- Bottom Navigation -->
         <nav class="bottom-nav glass-nav">
             <button class="nav-item active" data-target="view-dashboard">
                 <span class="icon">🏠</span>
@@ -259,13 +312,17 @@
             </button>
             <button class="nav-item" data-target="view-progress">
                 <span class="icon">📈</span>
-                <span class="label">Progress</span>
+                <span class="label">Chart</span>
             </button>
             <button class="nav-item" data-target="view-meals">
                 <span class="icon">🍎</span>
                 <span class="label">Meals</span>
             </button>
-            <button class="nav-item" data-target="view-goals">
+            <button class="nav-item" data-target="view-safety">
+                <span class="icon" style="color: var(--danger)">⚠️</span>
+                <span class="label">Safety</span>
+            </button>
+            <button class="nav-item" data-target="view-settings">
                 <span class="icon">⚙️</span>
                 <span class="label">More</span>
             </button>

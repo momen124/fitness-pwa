@@ -3,31 +3,23 @@
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MILESTONE_TARGETS = [115, 110, 105, 100, 95];
 
-const MEAL_PLAN = {
-    Monday: { br: "Eggs + Greek yogurt + cucumber/carrot cuts", lu: "Grilled chicken breast + big veggie soup", sn: "Apple + dates / yogurt" },
-    Tuesday: { br: "Oats + whey + tomato + apple", lu: "Chicken stir-fry + big veggie soup + quinoa", sn: "Banana + yogurt" },
-    Wednesday: { br: "Cottage cheese + eggs + carrot sticks + toast", lu: "Chicken garlic bake + big veggie soup + potatoes", sn: "Dark dates" },
-    Thursday: { br: "Yogurt bowl + banana + cucumber cuts", lu: "Chicken curry (light) + big veggie soup + rice", sn: "Fruit mix + whey" },
-    Friday: { br: "Eggs + yogurt + bell pepper + fruit", lu: "Chicken teriyaki style + big veggie soup + broccoli", sn: "Apple + yogurt" },
-    Saturday: { br: "Protein shake + banana + veg cuts", lu: "Leftover chicken + big veggie soup + rice", sn: "Any fruit" },
-    Sunday: { br: "Eggs + yogurt + cucumber + banana", lu: "Chicken lemon-herb + big veggie soup + veg", sn: "Dark dates" }
-};
+// Meal plan removed, static in UI
 
 const quotes = [
-    "One more day closer to free diving stamina.",
+    "One more day closer to free diving and kitesurfing stamina.",
     "Consistency over intensity. Show up.",
     "Small steps lead to massive results.",
     "Your future self will thank you for today.",
-    "Focus on the process, not just the number.",
+    "Focus on the process, protect the muscle.",
     "Phase 1 is about building the engine. Keep walking."
 ];
 
 let state = {
     isAlexandria: true,
-    startWeight: 120,
+    startWeight: 119.6,
     kcalTarget: 2000,
-    proteinTarget: 140,
-    logs: {} // structured mapping { "YYYY-MM-DD": { weight, cardio, diet, protein, strength, type, swim, notes, water } }
+    proteinTarget: 165,
+    logs: {} // structured mapping { "YYYY-MM-DD": { weight, cardio, diet, protein, strength, type, swim, notes, water, bf, muscle } }
 };
 
 function getTodayKey() { return new Date().toISOString().split('T')[0]; }
@@ -41,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bindSettings();
     bindLogForm();
     bindDashboardQuickActions();
-    renderMeals();
+    bindExport();
     bindExport();
     
     // Initial Render
@@ -60,7 +52,7 @@ function loadData() {
     // Ensure today's log exists
     let today = getTodayKey();
     if(!state.logs[today]) {
-        state.logs[today] = { weight: '', cardio: '', diet: false, protein: false, strength: false, type: 'gym', swim: false, notes: '', water: 0 };
+        state.logs[today] = { weight: '', cardio: '', diet: false, protein: false, strength: false, type: 'gym', swim: false, notes: '', water: 0, bf: '', muscle: '' };
     }
     
     applyMode();
@@ -99,7 +91,6 @@ function refreshAllViews() {
 }
 
 function getCurrentWeight() {
-    // find latest parsed weight
     let dates = Object.keys(state.logs).sort().reverse();
     for(let d of dates) {
         if(state.logs[d].weight && state.logs[d].weight > 0) return parseFloat(state.logs[d].weight);
@@ -107,12 +98,28 @@ function getCurrentWeight() {
     return parseFloat(state.startWeight); // fallback
 }
 
+function getCurrentBF() {
+    let dates = Object.keys(state.logs).sort().reverse();
+    for(let d of dates) {
+        if(state.logs[d].bf && state.logs[d].bf > 0) return parseFloat(state.logs[d].bf);
+    }
+    return 37.5; // fallback
+}
+
+function getCurrentMuscle() {
+    let dates = Object.keys(state.logs).sort().reverse();
+    for(let d of dates) {
+        if(state.logs[d].muscle && state.logs[d].muscle > 0) return parseFloat(state.logs[d].muscle);
+    }
+    return 24.1; // fallback
+}
+
 // Dashboard Logic
 function updateDashboard() {
     const today = state.logs[getTodayKey()];
     
     // Checklist
-    document.getElementById('dash-walk').textContent = today.cardio >= 5 || today.cardio >= 30 ? '✅' : '❌'; // assuming km or mins > 30 is cycle
+    document.getElementById('dash-walk').textContent = today.cardio >= 5 || today.cardio >= 45 ? '✅' : '❌'; // walk >= 5km or cycle >= 45min
     document.getElementById('dash-diet').textContent = today.diet ? '✅' : '❌';
     document.getElementById('dash-protein').textContent = today.protein ? '✅' : '❌';
     document.getElementById('dash-strength').textContent = today.strength ? '✅' : '❌';
@@ -130,6 +137,8 @@ function updateDashboard() {
     // Milestone logic
     const w = getCurrentWeight();
     document.getElementById('current-weight-display').textContent = `${w.toFixed(1)} kg`;
+    const bf = getCurrentBF();
+    document.getElementById('current-bf-display').textContent = `${bf.toFixed(1)}%`;
     
     let nextMilestone = 90;
     for(let i=0; i<MILESTONE_TARGETS.length; i++) {
@@ -203,10 +212,12 @@ function updateLogForm() {
     document.getElementById('log-date').value = getTodayKey();
     
     const dayName = WEEKDAYS[new Date().getDay()];
-    document.getElementById('log-assigned-meal').textContent = `${dayName}: ${MEAL_PLAN[dayName].lu}`;
+    document.getElementById('log-assigned-meal').textContent = `Daily High-Volume Plan`;
     
     document.getElementById('log-weight').value = today.weight || '';
     document.getElementById('log-cardio').value = today.cardio || '';
+    document.getElementById('log-bf').value = today.bf || '';
+    document.getElementById('log-muscle').value = today.muscle || '';
     document.getElementById('log-diet').checked = today.diet;
     document.getElementById('log-protein').checked = today.protein;
     document.getElementById('log-strength').checked = today.strength;
@@ -232,6 +243,8 @@ function bindLogForm() {
             ...state.logs[todayStr], // preserve water
             weight: document.getElementById('log-weight').value,
             cardio: document.getElementById('log-cardio').value,
+            bf: document.getElementById('log-bf').value,
+            muscle: document.getElementById('log-muscle').value,
             diet: document.getElementById('log-diet').checked,
             protein: document.getElementById('log-protein').checked,
             strength: document.getElementById('log-strength').checked,
@@ -255,7 +268,10 @@ function updateProgressTab() {
         d.setDate(d.getDate() - 1);
     }
     
-    let dietCount=0, cardioCount=0, validDays=0;
+    let dietCount=0, cardioCount=0, validDays=0, strengthCount=0;
+    
+    let firstWeight = null;
+    let lastWeight = null;
     
     // Reverse for chronologic display in chart
     keyDates.slice().reverse().forEach(dateStr => {
@@ -263,14 +279,27 @@ function updateProgressTab() {
         if(log) {
             if(log.diet) dietCount++;
             if(log.cardio && log.cardio > 0) cardioCount++;
+            if(log.strength) strengthCount++;
+            if(log.weight && log.weight > 0) {
+                if(!firstWeight) firstWeight = parseFloat(log.weight);
+                lastWeight = parseFloat(log.weight);
+            }
             validDays++;
         }
     });
     
     document.getElementById('stat-diet-days').textContent = `${dietCount}/7`;
     document.getElementById('stat-cardio-days').textContent = `${cardioCount}/7`;
-    const comp = validDays > 0 ? ((dietCount + cardioCount) / (7*2)) * 100 : 0;
+    const comp = validDays > 0 ? ((dietCount + cardioCount) / (validDays*2)) * 100 : 0;
     document.getElementById('stat-compliance').textContent = `${Math.round(comp)}%`;
+    
+    let avgLoss = 0;
+    if(firstWeight && lastWeight && validDays > 1) {
+        avgLoss = firstWeight - lastWeight; 
+    }
+    document.getElementById('stat-avg-loss').textContent = `${avgLoss.toFixed(1)} kg`;
+    document.getElementById('stat-strength-days').textContent = `${strengthCount}/7`;
+    document.getElementById('stat-muscle').textContent = `${getCurrentMuscle()}%`;
     
     // Milestones Path Setup
     let html = '';
