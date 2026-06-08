@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "express": "^5.2.1",
+    "playwright": "^1.60.0",
+    "pptxgenjs": "^4.0.1"
+  },
+  "name": "fitness-pwa",
+  "version": "1.0.0",
+  "description": "The **N=1 Performance Lab** is a high-performance, sports-science driven Progressive Web App (PWA) designed for advanced hybrid athletes. It replaces the need for generic fitness apps (like MyFitnessPal or Strava Premium) by providing a personalized, clinical-grade dashboard that aggregates subjective truths (fatigue, pain, RPE) with objective metrics (training load, weather, macros).",
+  "main": "app.js",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "serve": "node scripts/local_static_server.js",
+    "strava:setup": "node scripts/strava_setup.js",
+    "deploy": "powershell -ExecutionPolicy Bypass -File autodeploy.ps1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

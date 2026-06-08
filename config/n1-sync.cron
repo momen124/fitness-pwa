@@ -1,0 +1,1 @@
+0 */3 * * * root /opt/n1-sync/run-sync.sh >> /var/log/n1-sync.log 2>&1

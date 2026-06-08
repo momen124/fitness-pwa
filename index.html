@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>N=1 Performance Lab</title>
+    <meta name="description" content="Personal PWA Dashboard for subjective and passive metrics.">
+    <meta name="theme-color" content="#090b14">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css?v=25">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230d0e12'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='28' fill='%237c3aed' font-family='Arial, sans-serif'%3E N1%3C/text%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230d0e12'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='72' fill='%237c3aed' font-family='Arial, sans-serif'%3E N1%3C/text%3E%3C/svg%3E">
+    <!-- Supabase SDK (Ready for Cloud Sync) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<base target="_blank">
+</head>
+<body class="mode-alexandria">
+    <a class="skip-link" href="#view-dashboard">Skip to content</a>
+    <div id="app" class="app-container">
+        <!-- Header -->
+        <header class="glass-header">
+            <div>
+                <h1>N=1 Lab 🚀</h1>
+                <p id="header-date" class="header-date"></p>
+            </div>
+            <div class="header-actions">
+                <button id="streak-badge" class="badge accent">🔥 <span id="streak-count">0</span> Days</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+            
+            <!-- Dashboard Tab -->
+            <section id="view-dashboard" class="view active">
+                <div class="quote-card glass-card fade-in">
+                    <p id="motivational-quote" class="quote-text">"One more day closer to free diving and kitesurfing."</p>
+                </div>
+                
+                <div class="glass-card fade-in">
+                    <div class="flex-col mb-4">
+                        <h2 class="mb-2">Cockpit Dashboard 🚀</h2>
+                        <div class="sub-nav-pills" id="cockpit-macrocycle-pills">
+                            <button class="pill" data-cycle="HYPERTROPHY">Hypertrophy</button>
+                            <button class="pill active" data-cycle="STRENGTH">Strength</button>
+                            <button class="pill" data-cycle="ENDURANCE">Endurance</button>
+                            <button class="pill" data-cycle="DELOAD">Deload</button>
+                        </div>
+                        <div id="cockpit-cycle-status" class="mt-2" style="padding:0.8rem 1rem;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                            <div id="cockpit-cycle-name" style="font-weight:700;color:var(--primary-light);">Strength</div>
+                            <div id="cockpit-cycle-desc" class="text-sm text-secondary">High-intensity block. The app will tolerate lower volume but watch fatigue and tendon load.</div>
+                        </div>
+                    </div>
+                    <div class="athlete-os-panel mb-4">
+                        <div class="os-header">
+                            <div>
+                                <h3>Athlete OS Decision</h3>
+                                <p id="os-phase-summary">Phase 1 - Excavation & Structural Armor.</p>
+                            </div>
+                            <span id="os-status-pill" class="os-status os-status-green">GREEN</span>
+                        </div>
+                        <div id="os-session-title" class="os-session-title">45-60 min Zone 2 bike, row, swim, or walk/jog plus tendon armor.</div>
+                        <div class="os-metric-grid">
+                            <div class="os-metric">
+                                <span>Readiness</span>
+                                <strong id="os-readiness-value">--</strong>
+                            </div>
+                            <div class="os-metric">
+                                <span>Running Shield</span>
+                                <strong id="os-running-value">Shield active</strong>
+                            </div>
+                            <div class="os-metric">
+                                <span>Nutrition Target</span>
+                                <strong id="os-nutrition-value">2000 kcal / 200g protein</strong>
+                            </div>
+                            <div class="os-metric">
+                                <span>ACWR</span>
+                                <strong id="os-acwr-value">Baseline pending</strong>
+                            </div>
+                        </div>
+                        <div class="os-columns">
+                            <div>
+                                <div class="os-label">Avoid Today</div>
+                                <ul id="os-avoid-list" class="os-list"></ul>
+                            </div>
+                            <div>
+                                <div class="os-label">Recovery Instruction</div>
+                                <p id="os-recovery-text" class="os-copy">Green recovery: train, but stay inside Phase 1 rules.</p>
+                            </div>
+                        </div>
+                        <div class="os-label">Why</div>
+                        <div id="os-reason-codes" class="chip-row"></div>
+                        <div class="os-label mt-2">Post-Workout Check</div>
+                        <div id="os-post-workout-prompts" class="chip-row"></div>
+                        <div class="os-columns mt-2">
+                            <div>
+                                <div class="os-label">Minimum Effective Dose</div>
+                                <p id="os-minimum-dose-text" class="os-copy">Full planned session is allowed inside Phase 1 rules.</p>
+                            </div>
+                            <div>
+                                <div class="os-label">Phase Gate</div>
+                                <p id="os-phase-gate-text" class="os-copy">Stay in Phase 1 until transition checks are ready.</p>
+                                <div id="os-phase-gate-checks" class="phase-check-row"></div>
+                            </div>
+                        </div>
+                        <div class="os-label mt-2">Alert Ledger</div>
+                        <ul id="os-alert-ledger" class="alert-ledger"></ul>
+                    </div>
+                    <!-- Summary Cards: ACWR, WBGT, TDEE, Fatigue -->
+                    <div id="cockpit-summary-cards" class="mb-4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                        <div class="stat-card" id="card-acwr" style="padding:12px;">
+                            <div class="stat-label">ACWR</div>
+                            <div class="stat-value" id="card-acwr-val">—</div>
+                            <canvas id="spark-acwr" width="120" height="40" style="margin-top:6px;"></canvas>
+                            <div class="card-tip" id="card-acwr-tip" style="font-size:0.8rem;color:var(--text-secondary);"></div>
+                        </div>
+                        <div class="stat-card" id="card-wbgt" style="padding:12px;">
+                            <div class="stat-label">WBGT</div>
+                            <div class="stat-value" id="card-wbgt-val">—</div>
+                            <canvas id="spark-wbgt" width="120" height="40" style="margin-top:6px;"></canvas>
+                            <div class="card-tip" id="card-wbgt-tip" style="font-size:0.8rem;color:var(--text-secondary);"></div>
+                        </div>
+                        <div class="stat-card" id="card-tdee" style="padding:12px;">
+                            <div class="stat-label">TDEE</div>
+                            <div class="stat-value" id="card-tdee-val">—</div>
+                            <canvas id="spark-tdee" width="120" height="40" style="margin-top:6px;"></canvas>
+                            <div class="card-tip" id="card-tdee-tip" style="font-size:0.8rem;color:var(--text-secondary);"></div>
+                        </div>
+                        <div class="stat-card" id="card-fatigue" style="padding:12px;">
+                            <div class="stat-label">Fatigue</div>
+                            <div class="stat-value" id="card-fatigue-val">—</div>
+                            <canvas id="spark-fatigue" width="120" height="40" style="margin-top:6px;"></canvas>
+                            <div class="card-tip" id="card-fatigue-tip" style="font-size:0.8rem;color:var(--text-secondary);"></div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions + Export -->
+                    <div style="display:flex;gap:8px;margin-bottom:12px;">
+                        <button id="btn-mark-recovery" class="btn">Mark Recovery Day</button>
+                        <button id="btn-log-nsaid" class="btn">Log NSAID</button>
+                        <button id="btn-add-biomarker" class="btn">Add Biomarker</button>
+                        <button id="btn-export-csv" class="btn btn-ghost" style="margin-left:auto;">Export Cockpit CSV</button>
+                    </div>
+                    
+                    <!-- The Intersection Hub Summary -->
+                    <div id="hub-summary" class="mb-4" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="stat-card" style="background: rgba(100, 150, 255, 0.1); border: 1px solid rgba(100, 150, 255, 0.2);">
+                            <div class="stat-label">Cardio Volume</div>
+                            <div class="stat-value text-gradient" id="hub-cardio">0m</div>
+                        </div>
+                        <div class="stat-card" style="background: rgba(255, 120, 100, 0.1); border: 1px solid rgba(255, 120, 100, 0.2);">
+                            <div class="stat-label">Lift Focus</div>
+                            <div class="stat-value text-gradient" id="hub-lift" style="font-size: 1.1rem; padding-top: 5px;">Rest</div>
+                        </div>
+                    </div>
+                    <div id="cockpit-alerts" class="checklist">
+                        <!-- Alert 1: Clear to Lift -->
+                        <div class="check-item" id="alert-lift">
+                            <span class="icon">🟢</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">Interference Shield</div>
+                                <div id="alert-lift-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Cleared to lift heavy.</div>
+                            </div>
+                        </div>
+                        <!-- Alert 2: Tendon Risk -->
+                        <div class="check-item" id="alert-tendon">
+                            <span class="icon">🟢</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">Tendon Load</div>
+                                <div id="alert-tendon-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Tendons are recovering well.</div>
+                            </div>
+                        </div>
+                        <!-- Alert 3: Heat/Fuel -->
+                        <div class="check-item" id="alert-heat">
+                            <span class="icon">🟢</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">Heat & Catabolic State</div>
+                                <div id="alert-heat-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Fueling is adequate.</div>
+                            </div>
+                        </div>
+                        <!-- Alert 4: Nutrition -->
+                        <div class="check-item" id="alert-nutrition">
+                            <span class="icon">🟢</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">Nutrition Adherence</div>
+                                <div id="alert-nutrition-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Phase 1 targets met.</div>
+                            </div>
+                        </div>
+                        <!-- Alert 5: ACWR -->
+                        <div class="check-item" id="alert-acwr">
+                            <span class="icon">🟢</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">ACWR Load Status</div>
+                                <div id="alert-acwr-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Load ratio is optimal.</div>
+                            </div>
+                        </div>
+                        <!-- Alert 8: Metabolic Stall -->
+                        <div class="check-item" id="alert-stall">
+                            <span class="icon">⚪</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">Adaptation Velocity</div>
+                                <div id="alert-stall-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Log body fat % to enable velocity tracking.</div>
+                            </div>
+                        </div>
+                        <!-- Alert 7: Cognitive Overload -->
+                        <div class="check-item" id="alert-cognitive">
+                            <span class="icon">🟢</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">Cognitive Load Shield</div>
+                                <div id="alert-cognitive-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Cognitive load within tolerance.</div>
+                            </div>
+                        </div>
+                        <!-- Alert 6: Thermal Strain Shield -->
+                        <div class="check-item" id="alert-wbgt">
+                            <span class="icon">🟢</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">Thermal Strain Shield</div>
+                                <div id="alert-wbgt-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Conditions safe for intense effort.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="weekly-review-panel mt-4">
+                        <div class="os-header">
+                            <div>
+                                <h3>Weekly Review</h3>
+                                <p>Clear next action from load, pain, Zone 2, nutrition, and tendon armor.</p>
+                            </div>
+                            <span id="weekly-next-action" class="next-action">continue</span>
+                        </div>
+                        <ul id="weekly-review-list" class="weekly-review-list"></ul>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">⛰️ Way to 95</h2>
+                    <div class="milestone-container">
+                        <div class="milestone-labels">
+                            <span>Start: 119.6</span>
+                            <span id="milestone-current-weight">Current: --</span>
+                            <span>Goal: 95.0</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill gradient-primary" id="milestone-progress-bar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="milestones-vertical mt-4" id="milestone-list">
+                        <div class="ml-item" data-target="115">
+                            <div class="ml-text">First Drop: 115 kg</div>
+                            <div class="ml-sub">Shedding initial water & bloat</div>
+                        </div>
+                        <div class="ml-item" data-target="110">
+                            <div class="ml-text">Centurion Approach: 110 kg</div>
+                            <div class="ml-sub">Entering double-digit territory soon</div>
+                        </div>
+                        <div class="ml-item" data-target="105">
+                            <div class="ml-text">Halfway Mark: 105 kg</div>
+                            <div class="ml-sub">Substantial physiological changes</div>
+                        </div>
+                        <div class="ml-item" data-target="100">
+                            <div class="ml-text">Double Digits: 100 kg</div>
+                            <div class="ml-sub">A major psychological barrier broken</div>
+                        </div>
+                        <div class="ml-item" data-target="95">
+                            <div class="ml-text">Ultimate Goal: 95 kg</div>
+                            <div class="ml-sub">Prime athletic conditioning achieved</div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </section>
+
+            <!-- Strava Activities Tab -->
+            <section id="view-strava" class="view">
+                <div class="glass-card">
+                    <div class="strava-header">
+                        <div>
+                            <h2 class="mb-2">Strava Activity Inbox</h2>
+                            <p class="text-sm text-secondary">Objective cardio lands here. You only add RPE, pain, fueling, and optional notes.</p>
+                        </div>
+                        <button id="btn-sync-strava" class="btn btn-secondary">Sync Activities</button>
+                    </div>
+                    <div class="strava-stats">
+                        <div class="os-metric">
+                            <span>Imported</span>
+                            <strong id="strava-total-count">0</strong>
+                        </div>
+                        <div class="os-metric">
+                            <span>Needs Check</span>
+                            <strong id="strava-pending-count">0</strong>
+                        </div>
+                        <div class="os-metric">
+                            <span>Last Sync</span>
+                            <strong id="strava-last-sync">Not synced</strong>
+                        </div>
+                    </div>
+                    <div class="strava-oauth-note">
+                        <strong>Phase 2 bridge:</strong> the frontend inbox is live; full OAuth token refresh stays in the passive backend so the Strava client secret never ships to the browser.
+                    </div>
+                    <div id="strava-empty-state" class="strava-empty">
+                        No imported activities yet. Sync will pull recent cloud rows and rebuild from local Strava/Intervals fields.
+                    </div>
+                    <div id="strava-inbox-list" class="activity-list"></div>
+                </div>
+            </section>
+
+            <!-- Daily Log Tab -->
+            <section id="view-log" class="view">
+                <div class="glass-card">
+                    <h2 class="mb-4">🧠 Subjective Truth</h2>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Date (Auto)</label>
+                            <input type="date" id="log-date" readonly>
+                        </div>
+                        <div class="flex-row">
+                            <div class="input-group flex-1">
+                                <label>Morning Weight</label>
+                                <input type="number" id="log-weight" step="0.1">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>CNS Fatigue (1-5)</label>
+                                <input type="number" id="log-cns-fatigue" min="1" max="5">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Work Stress (1-5) <span id="workStressVal" class="pill" style="padding:0.2rem 0.5rem;font-size:0.7rem;">1</span></label>
+                                <input type="range" id="log-work-stress" min="1" max="5" step="1" value="1" oninput="document.getElementById('workStressVal').textContent = this.value">
+                                <small style="color:var(--text-muted);font-size:0.7rem;">1 = Deep work/flow. 5 = Burnout deadlines, context switching.</small>
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Body Fat % <span class="optional" style="color:var(--text-muted);font-size:0.7rem;">(for velocity tracking)</span></label>
+                                <input type="number" id="log-bodyfat" step="0.1" min="3" max="60" placeholder="e.g. 12.5">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Target Muscle</label>
+                                <input type="text" id="log-muscle-target" placeholder="e.g. Quads">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Muscle Sets</label>
+                                <input type="number" id="log-muscle-sets">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">🌙 Recovery & Sleep</h2>
+                    <div class="form-grid">
+                        <div class="flex-row">
+                            <div class="input-group flex-1">
+                                <label>Sleep (hrs)</label>
+                                <input type="number" id="log-sleep-hrs" step="0.5">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Sleep Quality (1-5)</label>
+                                <input type="number" id="log-sleep-qual" min="1" max="5">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>HRV (ms)</label>
+                                <input type="number" id="log-hrv">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Resting HR</label>
+                                <input type="number" id="log-resting-hr">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Soreness (0-10)</label>
+                                <input type="number" id="log-soreness" min="0" max="10">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Stress (0-10)</label>
+                                <input type="number" id="log-stress" min="0" max="10">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Motivation (0-10)</label>
+                                <input type="number" id="log-motivation" min="0" max="10">
+                            </div>
+                        </div>
+                        <div class="toggle-group mt-2">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-shutdown">
+                                <span class="slider"></span>
+                                <span class="label-text">Shutdown Protocol Completed</span>
+                            </label>
+                        </div>
+                        <div class="tendon-checklist mt-2">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-caffeine-cutoff">
+                                <span class="slider"></span>
+                                <span class="label-text">Caffeine cutoff met</span>
+                            </label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-meal-cutoff">
+                                <span class="slider"></span>
+                                <span class="label-text">Meal cutoff met</span>
+                            </label>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>🌡️ Temp (°C)</label>
+                                <input type="number" id="log-temp" step="0.1" placeholder="Auto-synced">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>💧 Humidity (%)</label>
+                                <input type="number" id="log-humidity" min="0" max="100" placeholder="Auto-synced">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">⚕️ Granular Injury Tracker</h2>
+                    <div class="form-grid">
+                        <div class="flex-row">
+                            <div class="input-group flex-2">
+                                <label>Target Joint/Area</label>
+                                <input type="text" id="log-injury-loc" list="injuryList" placeholder="e.g. Left Patella">
+                                <datalist id="injuryList">
+                                    <option value="Left Shoulder"><option value="Right Shoulder">
+                                    <option value="Left Elbow"><option value="Right Elbow">
+                                    <option value="Left Wrist"><option value="Right Wrist">
+                                    <option value="Lower Back"><option value="Upper Back">
+                                    <option value="Left Hip"><option value="Right Hip">
+                                    <option value="Left Knee"><option value="Right Knee">
+                                    <option value="Left Patella"><option value="Right Patella">
+                                    <option value="Left Ankle"><option value="Right Ankle">
+                                    <option value="Left Foot"><option value="Right Foot">
+                                    <option value="Left Achilles"><option value="Right Achilles">
+                                    <option value="Neck"><option value="Head">
+                                </datalist>
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Pain (0-10)</label>
+                                <input type="number" id="log-injury-pain" min="0" max="10">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Side</label>
+                                <select id="log-pain-side">
+                                    <option value="center">Center</option>
+                                    <option value="left">Left</option>
+                                    <option value="right">Right</option>
+                                </select>
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Pain Type</label>
+                                <select id="log-pain-type">
+                                    <option value="unknown">Unknown</option>
+                                    <option value="joint">Joint</option>
+                                    <option value="tendon">Tendon</option>
+                                    <option value="muscle">Muscle</option>
+                                    <option value="nerve">Nerve</option>
+                                </select>
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Timing</label>
+                                <select id="log-pain-timing">
+                                    <option value="during">During</option>
+                                    <option value="after">After</option>
+                                    <option value="next_morning">Next morning</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Action Taken</label>
+                                <input type="text" id="log-pain-action" placeholder="e.g. swapped run for bike">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Pain Notes</label>
+                                <input type="text" id="log-pain-notes" placeholder="optional">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">🏋️‍♂️ Strength & Structure</h2>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Session Type</label>
+                            <input type="hidden" id="log-gym-type" value="NONE">
+                            <div class="sub-nav-pills form-pills" data-target-id="log-gym-type" style="margin-top:0.5rem; overflow-x:auto;">
+                                <button class="pill active" data-val="NONE">None</button>
+                                <button class="pill" data-val="DAY_A">Heavy Day A</button>
+                                <button class="pill" data-val="DAY_B">Heavy Day B</button>
+                                <button class="pill" data-val="TENDON">Tendon Isolation</button>
+                            </div>
+                            <div id="session-status" style="margin-top:10px;padding:0.6rem 0.9rem;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);display:flex;align-items:center;gap:12px;">
+                                <div id="session-type-label" style="font-weight:700;color:var(--primary-light);">Session: None</div>
+                                <div id="session-type-desc" class="text-sm text-secondary">No gym session planned for today.</div>
+                            </div>
+                        </div>
+                        <div id="gym-details" class="hidden">
+                            <div class="flex-row mt-2">
+                                <div class="input-group flex-1">
+                                    <label>Start Time</label>
+                                    <input type="time" id="log-gym-start" value="10:00">
+                                </div>
+                                <div class="toggle-group flex-1" style="display: flex; align-items: flex-end;">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="log-prehab">
+                                        <span class="slider"></span>
+                                        <span class="label-text">Prehab Done</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="input-group mt-2">
+                                <label>Primary Lift</label>
+                                <input type="text" id="log-lift-name" placeholder="e.g. Trap Bar DL">
+                            </div>
+                            <div class="flex-row mt-2">
+                                <div class="input-group flex-1">
+                                    <label>Weight (kg)</label>
+                                    <input type="number" id="log-lift-weight" step="0.5">
+                                </div>
+                                <div class="input-group flex-1">
+                                    <label>Sets</label>
+                                    <input type="number" id="log-lift-sets">
+                                </div>
+                            </div>
+                            <div class="flex-row mt-2">
+                                <div class="input-group flex-1">
+                                    <label>Reps / Set</label>
+                                    <input type="number" id="log-lift-reps" min="1" max="30">
+                                </div>
+                                <div class="input-group flex-1">
+                                    <label>Rest (sec)</label>
+                                    <input type="number" id="log-lift-rest" min="0" step="15">
+                                </div>
+                                <div class="input-group flex-1">
+                                    <label>Actual RIR</label>
+                                    <input type="number" id="log-lift-rir">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tendon-checklist mt-2">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-warmup">
+                                <span class="slider"></span>
+                                <span class="label-text">Knee / hip prep</span>
+                            </label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-tendon-isometrics">
+                                <span class="slider"></span>
+                                <span class="label-text">45s isometrics</span>
+                            </label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-hsr">
+                                <span class="slider"></span>
+                                <span class="label-text">Heavy slow resistance</span>
+                            </label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-mobility">
+                                <span class="slider"></span>
+                                <span class="label-text">Mobility done</span>
+                            </label>
+                        </div>
+                        <div class="movement-quality-panel mt-2">
+                            <div class="os-label">Movement Quality Flags</div>
+                            <div class="tendon-checklist mt-2">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="log-squat-knee-cave">
+                                    <span class="slider"></span>
+                                    <span class="label-text">Knee caves in</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="log-hinge-back-rounds">
+                                    <span class="slider"></span>
+                                    <span class="label-text">Back rounds</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="log-shoulder-pain-flag">
+                                    <span class="slider"></span>
+                                    <span class="label-text">Shoulder pain</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="log-poor-brace">
+                                    <span class="slider"></span>
+                                    <span class="label-text">Poor brace</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="log-overstriding">
+                                    <span class="slider"></span>
+                                    <span class="label-text">Overstriding</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="log-low-cadence">
+                                    <span class="slider"></span>
+                                    <span class="label-text">Low cadence</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="log-swim-shoulder-mechanics">
+                                    <span class="slider"></span>
+                                    <span class="label-text">Swim shoulder mechanics</span>
+                                </label>
+                            </div>
+                            <div class="input-group mt-2">
+                                <label>Movement Notes</label>
+                                <input type="text" id="log-movement-notes" placeholder="Technique quality notes">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">💊 Pharmacology & Stims</h2>
+                    <div class="form-grid">
+                        <div class="input-group">
+                        <div id="log-alert-tendon" class="alert-box">
+                            <span class="icon">🔍</span>
+                            <span class="msg" id="log-alert-tendon-msg">Analyzing tendon load...</span>
+                        </div>
+                        <div id="log-alert-heat" class="alert-box">
+                            <span class="icon">🔍</span>
+                            <span class="msg" id="log-alert-heat-msg">Analyzing fueling...</span>
+                        </div>
+                        <div id="alert-endocrine" class="alert-box">
+                            <span class="icon">🔍</span>
+                            <span class="msg" id="alert-endocrine-msg">Analyzing endocrine stress...</span>
+                        </div>
+                        <div class="toggle-group">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-nsaids">
+                                <span class="slider"></span>
+                                <span class="label-text">NSAIDs Taken (Blunts mTOR)</span>
+                            </label>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">⚖️ InBody Metrics</h2>
+                    <p class="text-sm text-secondary mb-4">Log your body composition scan results.</p>
+                    <div class="form-grid">
+                        <div class="flex-row">
+                            <div class="input-group flex-1">
+                                <label>Test Date</label>
+                                <input type="date" id="log-inbody-date">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Total Weight (kg)</label>
+                                <input type="number" id="log-inbody-weight" step="0.1">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Skeletal Muscle (SMM) kg</label>
+                                <input type="number" id="log-inbody-smm" step="0.1">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Body Fat (PBF) %</label>
+                                <input type="number" id="log-inbody-bf" step="0.1">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Total Body Water (TBW) L</label>
+                                <input type="number" id="log-inbody-tbw" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">🏃‍♂️ Manual Cardio (Strava Fallback)</h2>
+                    <p class="text-sm text-secondary mb-4">Use this if the automated Strava integration fails.</p>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Activity Type</label>
+                            <input type="hidden" id="log-cardio-type" value="NONE">
+                            <div class="sub-nav-pills form-pills" data-target-id="log-cardio-type" style="margin-top:0.5rem; overflow-x:auto;">
+                                <button class="pill active" data-val="NONE">None</button>
+                                <button class="pill" data-val="WALK_JOG">Walk/Jog</button>
+                                <button class="pill" data-val="CYCLING">Cycling</button>
+                                <button class="pill" data-val="ROWING">Rowing</button>
+                                <button class="pill" data-val="SWIMMING">Swimming</button>
+                                <button class="pill" data-val="RUNNING">Run</button>
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Start Time</label>
+                                <input type="time" id="log-cardio-start">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Duration (mins)</label>
+                                <input type="number" id="log-cardio-duration">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Strava RPE</label>
+                                <input type="number" id="log-cardio-rpe">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Zone 1 Min</label>
+                                <input type="number" id="log-zone1" min="0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Zone 2 Min</label>
+                                <input type="number" id="log-zone2" min="0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Zone 3 Min</label>
+                                <input type="number" id="log-zone3" min="0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Zone 4 Min</label>
+                                <input type="number" id="log-zone4" min="0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Zone 5 Min</label>
+                                <input type="number" id="log-zone5" min="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">🧪 Ultra-Endurance Armor</h2>
+                    <div class="form-grid">
+                        <div class="flex-row">
+                            <div class="input-group flex-1">
+                                <label>Pre-Workout Carbs (g)</label>
+                                <input type="number" id="log-pre-workout-carbs" value="0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Intra Carbs (g)</label>
+                                <input type="number" id="log-intra-carbs" value="0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Pre Sodium (mg)</label>
+                                <input type="number" id="log-pre-sodium" value="0">
+                            </div>
+                        </div>
+                        <div class="toggle-group mt-2">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="log-post-refeed">
+                                <span class="slider"></span>
+                                <span class="label-text">Post-Cardio Refeed (30m)</span>
+                            </label>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Post Protein (g)</label>
+                                <input type="number" id="log-post-protein" value="0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Post Carbs (g)</label>
+                                <input type="number" id="log-post-carbs" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">🍎 Nutrition (Manual)</h2>
+                    <p class="text-sm text-secondary mb-4">Fallback since FatSecret API is locked.</p>
+                    <div class="form-grid">
+                        <div class="flex-row">
+                            <div class="input-group flex-1">
+                                <label>Calories</label>
+                                <input type="number" id="log-cals" placeholder="2800">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Protein (g)</label>
+                                <input type="number" id="log-pro" placeholder="180">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Caffeine (mg)</label>
+                                <input type="number" id="log-caffeine" placeholder="e.g. 200">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Peak Energy Window</label>
+                                <input type="time" id="log-energy-window" placeholder="e.g. 15:00">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Carbs (g)</label>
+                                <input type="number" id="log-carbs" placeholder="300">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Fats (g)</label>
+                                <input type="number" id="log-fats" placeholder="80">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Water (L)</label>
+                                <input type="number" id="log-water" step="0.1" placeholder="3.0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Sodium (mg)</label>
+                                <input type="number" id="log-sodium" placeholder="2500">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>Fiber (g)</label>
+                                <input type="number" id="log-fiber" placeholder="30">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Sugar (g)</label>
+                                <input type="number" id="log-sugar" placeholder="40">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden Biomarker Vault (Toggleable) -->
+                <div class="glass-card mt-4">
+                    <div class="flex-row items-center justify-between" onclick="document.getElementById('biomarker-vault').classList.toggle('hidden')" style="cursor: pointer;">
+                        <h2 class="mb-0">🩸 Quarterly Biomarker Vault</h2>
+                        <i data-lucide="chevron-down"></i>
+                    </div>
+                    <div id="biomarker-vault" class="form-grid mt-4 hidden">
+                        <p class="text-sm text-secondary mb-4">Input blood lab results to ensure endocrine/iron health.</p>
+                        <div class="flex-row">
+                            <div class="input-group flex-1">
+                                <label>Testosterone (ng/dL)</label>
+                                <input type="number" id="log-bio-test">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Cortisol AM (ug/dL)</label>
+                                <input type="number" id="log-bio-cortisol" step="0.1">
+                            </div>
+                        </div>
+                        <div class="flex-row mt-2">
+                            <div class="input-group flex-1">
+                                <label>hs-CRP (mg/L)</label>
+                                <input type="number" id="log-bio-hscrp" step="0.1">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Ferritin (ng/mL)</label>
+                                <input type="number" id="log-bio-ferritin">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="btn-save-log" class="btn btn-primary w-full mt-4" style="margin-bottom: 2rem;">Save Mission Log</button>
+            </section>
+
+            <section id="view-progress" class="view">
+                
+                <div class="sub-nav-pills mb-4">
+                    <button class="pill active" data-group="chart-recovery">Recovery</button>
+                    <button class="pill" data-group="chart-performance">Performance</button>
+                    <button class="pill" data-group="chart-metabolism">Metabolism</button>
+                </div>
+
+                <!-- Recovery Group -->
+                <div id="chart-recovery" class="chart-group active">
+                    <div class="glass-card hero-card">
+                        <h2><i data-lucide="trending-up"></i> Fatigue vs. Load</h2>
+                        <p class="text-sm text-secondary mb-4">7-Day trailing ratio of CNS Fatigue against Strava Effort.</p>
+                        <div style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bento-grid">
+                        <div class="glass-card bento-item">
+                            <h2><i data-lucide="crosshair"></i> Subjective Readiness</h2>
+                            <div style="position: relative; height: 200px; width: 100%;">
+                                <canvas id="radarChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-card bento-item">
+                            <h2><i data-lucide="heart-pulse"></i> HRV vs. Load</h2>
+                            <div style="position: relative; height: 200px; width: 100%;">
+                                <canvas id="hrvChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <h2><i data-lucide="activity"></i> Injury Tracker</h2>
+                        <p class="text-sm text-secondary mb-4">Pain scaling over time for isolated areas.</p>
+                        <div style="position: relative; height: 180px; width: 100%;">
+                            <canvas id="injuryChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <h2><i data-lucide="shield"></i> Joint Armor Heatmap</h2>
+                        <p class="text-sm text-secondary mb-4">14-day spatial pain map. Red intensity = max pain at that joint.</p>
+                            <div class="heatmap-container">
+                                <div class="body-map-wrapper">
+                                    <img src="images/body-front.png" class="body-wireframe-img" alt="Front Body">
+                                    <div id="joint-head" class="joint-point" data-loc="Head" style="top: 10%; left: 50%;"></div>
+                                    <div id="joint-neck" class="joint-point" data-loc="Neck" style="top: 16%; left: 50%;"></div>
+                                    <div id="joint-l-shoulder" class="joint-point" data-loc="Left Shoulder" style="top: 25%; left: 58%;"></div>
+                                    <div id="joint-r-shoulder" class="joint-point" data-loc="Right Shoulder" style="top: 25%; left: 42%;"></div>
+                                    <div id="joint-l-elbow" class="joint-point" data-loc="Left Elbow" style="top: 42%; left: 63%;"></div>
+                                    <div id="joint-r-elbow" class="joint-point" data-loc="Right Elbow" style="top: 42%; left: 37%;"></div>
+                                    <div id="joint-l-wrist" class="joint-point" data-loc="Left Wrist" style="top: 53%; left: 66%;"></div>
+                                    <div id="joint-r-wrist" class="joint-point" data-loc="Right Wrist" style="top: 53%; left: 34%;"></div>
+                                    <div id="joint-l-hip" class="joint-point" data-loc="Left Hip" style="top: 51%; left: 55%;"></div>
+                                    <div id="joint-r-hip" class="joint-point" data-loc="Right Hip" style="top: 51%; left: 45%;"></div>
+                                    <div id="joint-l-knee" class="joint-point" data-loc="Left Knee" style="top: 70%; left: 55%;"></div>
+                                    <div id="joint-r-knee" class="joint-point" data-loc="Right Knee" style="top: 70%; left: 45%;"></div>
+                                    <div id="joint-l-ankle" class="joint-point" data-loc="Left Ankle" style="top: 86%; left: 54%;"></div>
+                                    <div id="joint-r-ankle" class="joint-point" data-loc="Right Ankle" style="top: 86%; left: 46%;"></div>
+                                    <div id="joint-l-foot" class="joint-point" data-loc="Left Foot" style="top: 92%; left: 55%;"></div>
+                                    <div id="joint-r-foot" class="joint-point" data-loc="Right Foot" style="top: 92%; left: 45%;"></div>
+                                </div>
+                                <div class="body-map-wrapper">
+                                    <img src="images/body-back.png" class="body-wireframe-img" alt="Back Body">
+                                    <div id="joint-upper-back" class="joint-point" data-loc="Upper Back" style="top: 26%; left: 50%;"></div>
+                                    <div id="joint-lower-back" class="joint-point" data-loc="Lower Back" style="top: 46%; left: 50%;"></div>
+                                    <div id="joint-l-achilles" class="joint-point" data-loc="Left Achilles" style="top: 86%; left: 48%;"></div>
+                                    <div id="joint-r-achilles" class="joint-point" data-loc="Right Achilles" style="top: 86%; left: 52%;"></div>
+                                </div>
+                            <div class="heatmap-legend">
+                                <h4>Joint Armor Status (14-Day Max)</h4>
+                                <div class="legend-row"><span class="heat-dot" style="background:#ff0000"></span> 8-10 Critical</div>
+                                <div class="legend-row"><span class="heat-dot" style="background:#ff6600"></span> 5-7 Moderate</div>
+                                <div class="legend-row"><span class="heat-dot" style="background:#ffcc00"></span> 1-4 Mild</div>
+                                <div class="legend-row"><span class="heat-dot" style="background:#1a2035;border:1px solid #444"></span> 0 / No Data</div>
+                                <p class="heatmap-note">Hover joints for location & pain score. Red intensity = max pain over trailing 14 days.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <h2><i data-lucide="brain"></i> Mental vs. Physical Stress</h2>
+                        <p class="text-sm text-secondary mb-4">Cognitive load (1-5) mapped against objective training strain. Red = high stress days.</p>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="mentalVsPhysicalChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Group -->
+                <div id="chart-performance" class="chart-group">
+                    <div class="glass-card hero-card">
+                        <h2><i data-lucide="activity"></i> Aerobic Decoupling (EF)</h2>
+                        <p class="text-sm text-secondary mb-4">Pace vs. HR over 30 days. Validating Zone 2 base building.</p>
+                        <div style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="decouplingChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bento-grid">
+                        <div class="glass-card bento-item">
+                            <h2><i data-lucide="pie-chart"></i> Cardio Modality</h2>
+                            <div style="position: relative; height: 160px; width: 100%;">
+                                <canvas id="modalityChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-card bento-item">
+                            <h2><i data-lucide="dumbbell"></i> Heavy Lifts</h2>
+                            <div style="position: relative; height: 160px; width: 100%;">
+                                <canvas id="liftChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <h2><i data-lucide="alert-octagon"></i> Volume vs. Joint Pain</h2>
+                        <p class="text-sm text-secondary mb-4">Finding the MRV limit before tendons flare up.</p>
+                        <div style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="volumePainChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metabolism Group -->
+                <div id="chart-metabolism" class="chart-group">
+                    <div class="glass-card hero-card">
+                        <h2><i data-lucide="flame"></i> Metabolic Adaptation</h2>
+                        <p class="text-sm text-secondary mb-4">Weight vs. Calculated TDEE over 90 days.</p>
+                        <div style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="tdeeChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card">
+                        <h2><i data-lucide="pizza"></i> Macro Nutrition Stack</h2>
+                        <p class="text-sm text-secondary mb-4">Trailing 7-day intake of Carbs, Protein, and Fats.</p>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="macroChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <h2><i data-lucide="scale"></i> Body Composition Progress</h2>
+                        <p class="text-sm text-secondary mb-4">Weight, Body Fat %, and Muscle Mass % tracked over time.</p>
+                        <div style="position: relative; height: 250px; width: 100%;">
+                            <canvas id="inbodyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <h2><i data-lucide="zap"></i> Adaptation Velocity</h2>
+                        <p class="text-sm text-secondary mb-4">Body fat % rate-of-change (7-day regression). Flatline = metabolic stall signal.</p>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="adaptationVelocityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-6">
+                    <h2><i data-lucide="calendar"></i> Historical Logs</h2>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Select Date</label>
+                            <input type="date" id="history-date-picker">
+                        </div>
+                    </div>
+                    <pre id="json-dump" style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 0.8rem; overflow-x: auto; color: var(--primary-light); margin-top: 15px;"></pre>
+                </div>
+                
+                <button class="btn btn-secondary w-full mt-4" id="btn-export-progress-csv"><i data-lucide="download"></i> Export Progress CSV</button>
+            </section>
+
+            <!-- Library Tab -->
+            <section id="view-library" class="view">
+                <!-- Search Bar -->
+                <div class="search-container">
+                    <span class="search-icon"><i data-lucide="search"></i></span>
+                    <input type="text" id="library-search" class="search-input" placeholder="Search concepts, playbooks, rules...">
+                </div>
+
+                <!-- Category Pills -->
+                <div class="sub-nav-pills mb-4" id="library-pills">
+                    <button class="pill active" id="library-pill-all" data-category="all">All</button>
+                    <button class="pill" id="library-pill-pillars" data-category="pillars">Pillars</button>
+                    <button class="pill" id="library-pill-playbook" data-category="playbook">Playbook</button>
+                    <button class="pill" id="library-pill-roadmap" data-category="roadmap">Roadmap</button>
+                    <button class="pill" id="library-pill-rules" data-category="rules">Rules</button>
+                </div>
+
+                <!-- Cards Grid -->
+                <div class="library-grid" id="library-cards-container">
+                    
+                    <!-- PILLARS -->
+                    <div class="glass-card concept-card" id="lib-card-pillar-1" data-category="pillars">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag pillars">Pillars</span>
+                                <h3 class="concept-title">Pillar 1: Cellular Metabolism & Lactate Shuttle</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Manipulation of energy pathways (ATP-PCr, Glycolysis, Aerobic) to maximize continuous force output and base endurance.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">ATP-PCr (Phosphagen System)</div>
+                                <div class="detail-text">Timeline: 0–15 seconds. Pure explosive power (heavy deadlifts, short sprints). Uses stored muscle energy, requires no oxygen.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Anaerobic Glycolysis (Glycolytic System)</div>
+                                <div class="detail-text">Timeline: 15 seconds to 2 minutes. High-intensity interval territory. Burns carbohydrates without oxygen, generating lactate and acidic hydrogen (H+) ions that cause muscular failure.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Oxidative Pathway (Aerobic System)</div>
+                                <div class="detail-text">Timeline: 2 minutes to 15+ hours. The fundamental driver of endurance. Oxidizes fats and glycogen inside cellular structures in the presence of oxygen.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The Lactate Shuttle Protocol</div>
+                                <div class="detail-text">Lactate is a premium carbohydrate substrate. Zone 2 training builds slow-twitch muscle fibers with high MCT1 transporter density. This transforms your slow-twitch base into a biological "vacuum" that sucks up and burns metabolic byproducts of intense lifting for continuous ATP.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-pillar-2" data-category="pillars">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag pillars">Pillars</span>
+                                <h3 class="concept-title">Pillar 2: Respiration & The Aerobic Ceiling</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Maximize cardiovascular volume and heart stroke capacity using the Fick Equation.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Fick Equation</div>
+                                <div class="detail-text">VO2 Max = Q &times; &Delta;a-vO2. Where Q represents Maximal Cardiac Output (Stroke Volume &times; HR) and &Delta;a-vO2 represents peripheral oxygen extraction.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Hydrostatic Stress</div>
+                                <div class="detail-text">Slow training increases chamber compliance, but severe-intensity intervals (90%+ max HR) are required to drive hydrostatic stress and left-ventricle eccentric remodeling, making the heart larger and stronger.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The Operational Rule</div>
+                                <div class="detail-text">Allocate 10% to 15% of weekly cardiovascular duration to severe, high-intensity intervals (e.g. 4-minute maximum-effort cycling or rowing repeats separated by active recovery).</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-pillar-3" data-category="pillars">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag pillars">Pillars</span>
+                                <h3 class="concept-title">Pillar 3: Neuromuscular Drive (Strength without Mass)</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Avoid non-functional hypertrophy (dead weight) by training myofibrillar pathways over sarcoplasmic ones.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Sarcoplasmic Hypertrophy (The Pump)</div>
+                                <div class="detail-text">Moderate loads (8–15 reps), short rest. Accumulates fluid volume, non-contractile proteins, and glycogen in muscle sarcoplasm. Increases mass without proportional force gains.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Myofibrillar Adaptation (Dense Strength)</div>
+                                <div class="detail-text">High-intensity loads (1–5 reps), long rest. Increases volume and density of actin and myosin contractile elements. Elevates pound-for-pound power while leaving systemic mass unaltered.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Henneman's Size Principle</div>
+                                <div class="detail-text">Lifting ultra-heavy loads (&ge;85% 1RM) overrides sequential motor unit recruitment, forcing the central nervous system to fire high-threshold Type IIx fibers synchronously from the first millimeter of movement.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The Strength Programming Rule</div>
+                                <div class="detail-text">Execute free-weight and machine compound movements using heavy loads strictly at or above 85% of your 1-Repetition Maximum (1RM). Restrict sets to 1 to 5 highly explosive repetitions, and enforce 3 to 5 minutes of complete passive recovery between sets.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-pillar-4" data-category="pillars">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag pillars">Pillars</span>
+                                <h3 class="concept-title">Pillar 4: Biological Conflict & The Interference Effect</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Manage molecular signal competition between the anabolic mTORc1 pathway and the catabolic AMPK pathway.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">mTORc1 Pathway</div>
+                                <div class="detail-text">Activated via intense mechanical tension and high amino acid concentrations. Primary switch for building dense muscle proteins.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">AMPK Pathway</div>
+                                <div class="detail-text">Triggered via acute glycogen depletion, high intracellular calcium levels, and metabolic stress during endurance. Drives mitochondrial biogenesis (PGC-1&alpha;).</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The Conflict & The 4-Hour Rule</div>
+                                <div class="detail-text">When heavily activated, AMPK acts as a direct molecular inhibitor of the mTORc1 pathway. Cardio immediately after lifting shuts down strength-building signals. You must separate your high-volume cardio and your heavy neural strength sessions by an absolute minimum window of 4 hours (ideally 6 to 24 hours). Always execute cardio first if doing two-a-days.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-pillar-5" data-category="pillars">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag pillars">Pillars</span>
+                                <h3 class="concept-title">Pillar 5: Muscle Preservation & Nutrition Timing</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Prevent muscle tissue breakdown (gluconeogenesis) via proper fueling timing during endurance sessions.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Gluconeogenesis</div>
+                                <div class="detail-text">When glycogen is critically depleted (sessions >75-90 minutes), the liver breaks down existing skeletal muscle tissue into free amino acids to convert them into glucose for survival.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The 50-Minute Rule</div>
+                                <div class="detail-text">Cardiovascular training sessions restricted to under 50–70 minutes pose zero threat of muscle cannibalization. Glycogen stores are fully capable of supplying this timeline.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The Post-Cardio Reset Window</div>
+                                <div class="detail-text">Within 15 to 30 minutes of completing cardio, you must consume high-glycemic carbs and rapid-acting protein. This generates an insulin spike that suppresses cortisol and stops gluconeogenesis.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Intra-Workout Fueling</div>
+                                <div class="detail-text">For planned sessions >75 minutes, ingest liquid carbs at a rate of 30 to 60 grams per hour to feed the blood glucose pool directly.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-pillar-6" data-category="pillars">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag pillars">Pillars</span>
+                                <h3 class="concept-title">Pillar 6: The Chassis (Joint Armor & Tendon Theory)</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Active joint mobility vs. passive flexibility, and tendon growth via mechanotransduction.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Flexibility vs. Mobility</div>
+                                <div class="detail-text">Flexibility is passive range of motion. Mobility is active structural control and force production at end-ranges. High passive flexibility combined with weak active mobility creates severe joint instability.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Mechanotransduction</div>
+                                <div class="detail-text">Tendons have extremely low blood flow and adapt at a fraction of muscle speed. Tendons strengthen exclusively via mechanotransduction—cells converting physical tension into collagen synthesis.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-pillar-7" data-category="pillars">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag pillars">Pillars</span>
+                                <h3 class="concept-title">Pillar 7: The Stress Bucket (Autonomic Balance)</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Balance the Autonomic Nervous System (ANS) seesaw of Sympathetic and Parasympathetic states.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Systemic Stress Reservoir</div>
+                                <div class="detail-text">Your body cannot separate training stress from life anxiety. All stressors dump into a shared reservoir. The body cannot repair connective tissue or synthesize new proteins while stuck in a Sympathetic (fight or flight) state.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">HRV Operational Rule</div>
+                                <div class="detail-text">Track Heart Rate Variability (HRV) daily. A high HRV indicates parasympathetic dominance (ready for load). A suppressed HRV reveals a fried sympathetic state (pull back heavy neural lifting, keep cardio light).</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-pillar-8" data-category="pillars">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag pillars">Pillars</span>
+                                <h3 class="concept-title">Pillar 8: Macro-Periodization</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Block Periodization structure to manage opposing training adaptations without overtraining.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Phase 1: Base & Structural Architecture</div>
+                                <div class="detail-text">Volume Split: 70% Zone 2 Cardio / 20% Mobility & Tendon / 10% HIIT. Strength Target: Low-volume, ultra-heavy compounds to maintain nervous system motor patterns.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Phase 2: Neural Strength & Aerobic Ceiling</div>
+                                <div class="detail-text">Volume Split: 50% Zone 2 Cardio / 30% Pure Neural Strength (1-5 reps at 85%+) / 20% VO2 max intervals. Strength Target: Force absolute nervous system adaptations.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Phase 3: Specific Endurance & Race Execution</div>
+                                <div class="detail-text">Volume Split: 80% Sport-Specific / 20% Minimalist Lifting. Strength Target: Minimalist maintenance dose to focus all energy on race capacity.</div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- PLAYBOOK -->
+                    <div class="glass-card concept-card" id="lib-card-playbook-1" data-category="playbook">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag playbook">Playbook</span>
+                                <h3 class="concept-title">Heavy Isometrics (Pain-Killer Protocol)</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Analgesic holds for tendon pain management and parallel alignment of collagen fibers.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">The Science</div>
+                                <div class="detail-text">Isometric holds (contracting without moving) act as an analgesic (painkiller) for irritated tendons while forcing chaotic collagen fibers to align perfectly parallel.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Prescription</div>
+                                <div class="detail-text">4 sets of 45-second holds. 2-minute rest between sets. You must use heavy weight; body weight is not enough. 2–3 times a week.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Application</div>
+                                <div class="detail-text">Weighted Single-Leg Calf Raise Holds (Achilles). Heavy Spanish Squats or Wall Sits (Patellar Tendon). Heavy kettlebell bottoms-up holds (Rotator Cuff).</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-playbook-2" data-category="playbook">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag playbook">Playbook</span>
+                                <h3 class="concept-title">Heavy Slow Resistance (Cable Builder)</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Stimulate actual tendon thickening and collagen structure growth.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">The Science</div>
+                                <div class="detail-text">Tendons require heavy loads moving very slowly to stimulate actual tissue growth and thickening. This protocol is superior to high-rep, light-weight rehab.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Prescription</div>
+                                <div class="detail-text">3 to 4 sets of 6–8 reps. Tempo is non-negotiable: 3 seconds down (eccentric) and 3 seconds up (concentric). Twice a week at the end of strength days.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Application</div>
+                                <div class="detail-text">ATG Split Squats or slow Leg Extensions. Weighted heel drops off a stair. Heavy, slow chin-up negatives (for the swim stroke).</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-playbook-3" data-category="playbook">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag playbook">Playbook</span>
+                                <h3 class="concept-title">Plyometrics (Spring Architecture)</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Build rigid mechanical spring stiffness in Achilles and plantar fascia.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">The Science</div>
+                                <div class="detail-text">You want your Achilles and plantar fascia to act as dense, highly rigid mechanical springs that instantly bounce back up to 50% of your running impact energy.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Prescription</div>
+                                <div class="detail-text">Low volume, extreme intent. Ground contact time must be a fraction of a second. 2 times a week, before your nervous system is fatigued.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Application</div>
+                                <div class="detail-text">Pogo Jumps (3 sets of 15-20s, stiff knees). Depth Drops (3 sets of 5 reps off a 12-18 inch box, sticking the landing instantly).</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-playbook-4" data-category="playbook">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag playbook">Playbook</span>
+                                <h3 class="concept-title">Active Joint Mobility (Chassis Greaser)</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Morning or warm-up routine to build active control at end-ranges.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">The Science</div>
+                                <div class="detail-text">Passive stretching is useless for injury prevention. You must build muscular control at the absolute end-ranges of your joints. Perform every single morning or as your pre-workout dynamic warm-up.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Thoracic Spine</div>
+                                <div class="detail-text">T-Spine Rotations and Cat-Cow variations. Reverses upper-torso slouching caused by sitting at the coding desk all day. Critical for rowing and swimming.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Hips</div>
+                                <div class="detail-text">90/90 Hip Switches and End-Range Liftoffs (sit in a deep stretch and physically lift your foot off the ground using hip rotators). Essential for running/cycling power.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Ankles</div>
+                                <div class="detail-text">Knee-to-wall ankle glides. Maximizes squat depth and optimizes land running gait mechanics.</div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- ROADMAP -->
+                    <div class="glass-card concept-card" id="lib-card-roadmap-1" data-category="roadmap">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag roadmap">Roadmap</span>
+                                <h3 class="concept-title">Target InBody Signature Database</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Height 173cm, Age 22 target signatures for hybrid athletic success.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Target Calibration (Height: 173cm, Age: 22)</div>
+                                <div class="detail-text">Because your goal is high neural strength mixed with extreme multi-sport endurance, targets deviate from standard medical charts. We aim for minimized land-strike friction but heavy capacity.</div>
+                                <div class="library-table-container">
+                                    <table class="library-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Metric</th>
+                                                <th>Baseline</th>
+                                                <th>Phase 1 Target</th>
+                                                <th>Ultimate Target</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Total Weight</strong></td>
+                                                <td>116 kg</td>
+                                                <td><span class="highlight-target">~95 kg</span></td>
+                                                <td><span class="highlight-ultimate">78-82 kg (Optimized)</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Body Fat (PBF)</strong></td>
+                                                <td>33%</td>
+                                                <td><span class="highlight-target">&le; 22% (Excavation)</span></td>
+                                                <td><span class="highlight-ultimate">12%-15% (Elite)</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Muscle (SMM)</strong></td>
+                                                <td>29 kg</td>
+                                                <td>Maintain Weight</td>
+                                                <td><span class="highlight-ultimate">36-38 kg (Dense)</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>SMM % of Total</strong></td>
+                                                <td>25.0%</td>
+                                                <td><span class="highlight-target">~31.0%-33.0%</span></td>
+                                                <td><span class="highlight-ultimate">45.0%-48.0% (Sweet Spot)</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Water (TBW)</strong></td>
+                                                <td>48.0%</td>
+                                                <td><span class="highlight-target">> 50.0% (Base Floor)</span></td>
+                                                <td><span class="highlight-ultimate">60.0%-65.0% (Shield)</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The Bio-Impedance Reality Check</div>
+                                <div class="detail-text" style="color: var(--accent); font-weight: 500;">
+                                    Do not confuse fluid drops with actual tissue loss. High deficits drop muscle glycogen. Since 1g glycogen binds to 3g water, muscles rapidly dump water. InBody scans will misread this as severe muscle loss. If lift numbers remain stable, ignore the machine's muscle warning—it is a fluid illusion.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-roadmap-2" data-category="roadmap">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag roadmap">Roadmap</span>
+                                <h3 class="concept-title">Phase 1: Excavation & Structural Armor</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Current state down to 22% Body Fat / ~95 kg total mass.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">What It Does</div>
+                                <div class="detail-text">Acts as a structural overhaul block. Maximizes fat tissue breakdown using non-impact cardiovascular engines (Cycling, Rowing, Swimming) while building dense connective tissue stiffness (tendon armor) and heavy neural output.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Why We Do It</div>
+                                <div class="detail-text">
+                                    <ul>
+                                        <li><strong>Fat Oxidation Over Muscle Cannibalization:</strong> Zone 2 cardio develops fat-burning enzymes without systemic exhaustion. Lifting in the 1–5 rep range forces motor unit firing, signaling that muscle mass is mandatory for survival.</li>
+                                        <li><strong>Shielding the Chassis from Weight Physics:</strong> Running at 116 kg drops ~348 kg of force per step on joints. Non-impact cardio builds capacity, while Heavy Slow Resistance (HSR) and Isometrics physically thicken tendons.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-roadmap-3" data-category="roadmap">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag roadmap">Roadmap</span>
+                                <h3 class="concept-title">Phase 2: Neural Power & Aerobic Ceiling</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Triggered once weight drops below 95 kg and joint integrity is verified.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">What It Does</div>
+                                <div class="detail-text">Shifts physiological priorities from structural safety to maximizing raw horsepower and metabolic speed. Pushes oxygen consumption limits (VO2 max), elevates skeletal force production, and advances walk/jog intervals into a continuous 10k progression.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Why We Do It</div>
+                                <div class="detail-text">
+                                    <ul>
+                                        <li><strong>Lifting the Aerobic Pyramid:</strong> Severe-intensity interval circuits produce high internal pressure, forcing cardiac remodeling—expanding and strengthening the heart's left ventricle to pump more blood.</li>
+                                        <li><strong>Hacking Your Cadence Economy:</strong> At lighter weights, joints can accept high-velocity impacts. Plyometrics and maximal neural lifts boost Rate of Force Development (RFD), programming the motor cortex to fire fibers instantly.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-roadmap-4" data-category="roadmap">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag roadmap">Roadmap</span>
+                                <h3 class="concept-title">Phase 3: Specific Endurance & Race Execution</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">The final 4–6 weeks leading directly into a target event (10k, Hyrox, or Triathlon).</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">What It Does</div>
+                                <div class="detail-text">A sport-specific tuning block. Drops heavy gym lifting to a bare minimalist maintenance dose (preserving neural drive) and funnels 80% of adaptive energy into pacing profiles, nutrition timing, and transitions.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Why We Do It</div>
+                                <div class="detail-text">
+                                    <ul>
+                                        <li><strong>Managing Stress Bucket Capacity:</strong> Gym lifting volume is cut to prevent overloading the Sympathetic pathway, allowing full recovery and maintaining sleep architecture.</li>
+                                        <li><strong>Defeating Gluconeogenesis:</strong> Rehearsal of exact intra-workout carb ingestion (30–60g per hour) to feed the blood glucose pool, suppressing cortisol spikes and protecting muscle tissue on the race course.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- RULES -->
+                    <div class="glass-card concept-card" id="lib-card-rules-1" data-category="rules">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag rules">Rules</span>
+                                <h3 class="concept-title">The 4-Hour Separation Rule</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Critical timing guideline to prevent the catabolic AMPK pathway from blunting mTORc1 strength adaptations.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">The Conflict</div>
+                                <div class="detail-text">Endurance training triggers AMPK (mitochondrial biogenesis). Lifting triggers mTORc1 (muscle protein synthesis). Activated AMPK acts as a direct molecular inhibitor of the mTORc1 pathway. Doing them back-to-back destroys the strength adaptation.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The Separation Rule</div>
+                                <div class="detail-text"><span class="rule-badge danger">Rule</span>Separate high-volume cardio and heavy neural strength sessions by an absolute minimum window of 4 hours (ideally 6 to 24 hours). If performing two-a-days, always execute the cardiovascular session first.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-rules-2" data-category="rules">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag rules">Rules</span>
+                                <h3 class="concept-title">Endurance Fueling & The 50-Minute Rule</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Prevent muscle tissue breakdown (gluconeogenesis) via carbohydrate ingestion and timing.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">The 50-Minute Rule</div>
+                                <div class="detail-text">Cardio sessions under 50–70 minutes pose zero threat of muscle cannibalization. Intramuscular and hepatic glycogen stores are fully capable of supplying this timeline.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">The Post-Cardio Reset Window</div>
+                                <div class="detail-text">Within 15 to 30 minutes of completing cardio, consume high-glycemic carbohydrates and rapid-acting protein. This generates an insulin spike that suppresses cortisol, stops gluconeogenesis, and drives nutrients directly back into muscle.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Intra-Workout Fueling Protocol</div>
+                                <div class="detail-text">For any planned session extending beyond 75 minutes, ingest liquid carbs at a rate of 30 to 60 grams per hour to feed the blood glucose pool, preventing the liver from breaking down skeletal muscle.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-rules-3" data-category="rules">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag rules">Rules</span>
+                                <h3 class="concept-title">Daily Systems Check</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">5-step check to run before executing any training day to ensure safety and performance.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Intensity Discipline</div>
+                                <div class="detail-text">Is my easy cardio truly easy enough to hold a conversation? (Strictly Zone 2).</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Neuromuscular Focus</div>
+                                <div class="detail-text">Are my gym sets heavy enough, low enough rep (1-5), and rested enough (3-5 min) to build power without bulking?</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Interference Management</div>
+                                <div class="detail-text">If doing two-a-days, did I leave a minimum 4-hour gap between cardio and heavy lifting?</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Fueling Protocol</div>
+                                <div class="detail-text">Did I eat carbs/protein immediately after cardio to spike insulin? Am I fueling with 30-60g carbs/hr for sessions over 90 mins?</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">ANS Check</div>
+                                <div class="detail-text">Is my HRV high enough today to justify a hard workout, or do I need to stay in recovery mode?</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card concept-card" id="lib-card-rules-4" data-category="rules">
+                        <div class="concept-header">
+                            <div class="concept-title-group">
+                                <span class="concept-tag rules">Rules</span>
+                                <h3 class="concept-title">Weekly Joint & Tendon Integration</h3>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <p class="concept-summary">Weekly rhythm integration checklist to prevent overtraining of connective tissues.</p>
+                        <div class="concept-details">
+                            <div class="detail-section">
+                                <div class="detail-label">Pre-Run/Pre-Bike</div>
+                                <div class="detail-text">5 minutes of Active Joint Mobility (Hips and Ankles) to grease the chassis.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Pre-Lift</div>
+                                <div class="detail-text">2 sets of Heavy Isometrics (45 seconds) to prime the tendons and kill any lingering pain (Pain-Killer Protocol).</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Post-Lift</div>
+                                <div class="detail-text">3 sets of Heavy Slow Resistance (HSR) (3s down, 3s up) to physically thicken the tendons.</div>
+                            </div>
+                            <div class="detail-section">
+                                <div class="detail-label">Fresh Days (No lifting)</div>
+                                <div class="detail-text">10 minutes of Plyometrics (Pogo Jumps and Depth Drops) to build the mechanical spring mechanism.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Fueling Simulator Tab -->
+            <section id="view-fueling" class="view">
+                <div class="glass-card">
+                    <h2 class="mb-4">⛽ Race Fueling Simulator</h2>
+                    <p class="text-sm text-secondary mb-4">Practice your race-day gut protocol in training. Marathons are won at 60-90g/hr.</p>
+
+                    <div class="sim-grid">
+                        <div class="sim-inputs">
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label>Event Duration (hours)</label>
+                                    <input type="number" id="sim-duration" value="4" step="0.5" min="1" max="24">
+                                </div>
+                                <div class="input-group">
+                                    <label>Target Intensity (RPE) <span id="simRpeVal" class="pill" style="padding:0.2rem 0.5rem;font-size:0.7rem;">6</span></label>
+                                    <input type="range" id="sim-rpe" min="1" max="10" value="6" oninput="document.getElementById('simRpeVal').textContent = this.value">
+                                </div>
+                                <div class="input-group">
+                                    <label>Your Weight (kg)</label>
+                                    <input type="number" id="sim-weight" value="78" step="0.1">
+                                </div>
+                                <div class="input-group">
+                                    <label>Ambient Temp (°C)</label>
+                                    <input type="number" id="sim-temp" value="25">
+                                </div>
+                                <button class="btn btn-primary" onclick="runFuelingSim()" style="margin-top:8px;">Calculate Protocol</button>
+                            </div>
+                        </div>
+
+                        <div id="simResults" class="sim-results">
+                            <p style="color:#666;font-size:0.9rem;text-align:center;">Enter parameters and click Calculate to generate your race fueling protocol.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2 class="mb-4">🧪 Gut Training History</h2>
+                    <p class="text-sm text-secondary mb-4">Your intra-workout carb tolerance from logged sessions.</p>
+                    <div id="gutHistoryDisplay">
+                        <p style="color:#666;">Log intra-carbs during 60+ min cardio sessions to calibrate.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="view-settings" class="view">
+                <div class="glass-card">
+                    <h2 class="mb-4">⚙️ Periodization Engine</h2>
+                    <div class="input-group">
+                        <label>Current Macrocycle Block</label>
+                        <input type="hidden" id="settings-macrocycle" value="STRENGTH">
+                        <div class="sub-nav-pills form-pills" data-target-id="settings-macrocycle" style="margin-top:0.5rem; overflow-x:auto;">
+                            <button class="pill" data-val="HYPERTROPHY">Hypertrophy</button>
+                            <button class="pill" data-val="STRENGTH">Strength</button>
+                            <button class="pill" data-val="ENDURANCE">Endurance</button>
+                            <button class="pill" data-val="DELOAD">Deload</button>
+                        </div>
+                        <p class="text-sm text-secondary mt-2">Cockpit alerts adjust sensitivity based on your selected phase.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>☁️ Cloud Sync Status</h2>
+                    <div id="supabase-status" class="os-metric-grid mb-4" style="margin-top:1rem;">
+                        <div class="os-metric">
+                            <span>Supabase</span>
+                            <strong id="status-supabase-indicator">Checking...</strong>
+                        </div>
+                        <div class="os-metric">
+                            <span>Logs Synced</span>
+                            <strong id="status-cloud-count">--</strong>
+                        </div>
+                        <div class="os-metric">
+                            <span>Passive Engine</span>
+                            <strong id="status-passive-engine">--</strong>
+                        </div>
+                        <div class="os-metric">
+                            <span>Weather Source</span>
+                            <strong id="status-weather-source">--</strong>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-full" id="btn-sync-now">Sync Now</button>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>🌤️ Weather Auto-Fetch</h2>
+                    <p class="text-sm text-secondary mb-4">Auto-fetches temperature & humidity for WBGT thermal shield. Uses Alexandria, Egypt coordinates.</p>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>OpenWeatherMap API Key</label>
+                            <input type="password" id="settings-weather-key" class="w-full" placeholder="Enter your API key">
+                        </div>
+                        <button class="btn btn-primary" id="btn-save-weather-key">Save Weather Key</button>
+                    </div>
+                    <div id="weather-status-msg" class="text-sm text-secondary mt-2"></div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>🚴 Strava Connection</h2>
+                    <p class="text-sm text-secondary mb-4">Authorize Strava to auto-import your cardio activities. The server handles OAuth tokens securely.</p>
+                    <div id="strava-connection-status" class="mb-4">
+                        <div class="os-metric-grid">
+                            <div class="os-metric">
+                                <span>Strava</span>
+                                <strong id="status-strava-indicator">Not connected</strong>
+                            </div>
+                            <div class="os-metric">
+                                <span>Last Import</span>
+                                <strong id="status-strava-last-import">--</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary w-full" id="btn-connect-strava">Connect Strava Account</button>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>📦 Data Management</h2>
+                    <div class="form-grid">
+                        <button class="btn btn-secondary w-full" id="btn-export-full-backup">Export Full Backup (JSON)</button>
+                        <button class="btn btn-danger w-full mt-2" id="btn-reset-data">Reset All Local Data</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <nav class="bottom-nav glass-nav">
+            <button class="nav-item active" data-target="view-dashboard">
+                <span class="icon"><i data-lucide="layout-dashboard"></i></span>
+                <span class="label">Cockpit</span>
+            </button>
+            <button class="nav-item" data-target="view-log">
+                <span class="icon"><i data-lucide="pen-tool"></i></span>
+                <span class="label">Log</span>
+            </button>
+            <button class="nav-item" data-target="view-strava">
+                <span class="icon"><i data-lucide="refresh-cw"></i></span>
+                <span class="label">Strava</span>
+            </button>
+            <button class="nav-item" data-target="view-progress">
+                <span class="icon"><i data-lucide="activity"></i></span>
+                <span class="label">Data</span>
+            </button>
+            <button class="nav-item" data-target="view-library">
+                <span class="icon"><i data-lucide="book-open"></i></span>
+                <span class="label">Library</span>
+            </button>
+            <button class="nav-item" data-target="view-fueling">
+                <span class="icon"><i data-lucide="fuel"></i></span>
+                <span class="label">Fuel</span>
+            </button>
+            <button class="nav-item" data-target="view-settings">
+                <span class="icon"><i data-lucide="settings"></i></span>
+                <span class="label">Settings</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Biomarker Inline Modal -->
+    <div id="biomarker-modal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;">
+        <div class="glass-card" style="width:min(90vw,440px);margin:auto;max-height:90vh;overflow-y:auto;">
+            <h2 class="mb-4">🩸 Log Biomarker</h2>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label>Testosterone (ng/dL)</label>
+                    <input type="number" id="modal-bio-test" step="1">
+                </div>
+                <div class="input-group">
+                    <label>Cortisol AM (ug/dL)</label>
+                    <input type="number" id="modal-bio-cortisol" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>hs-CRP (mg/L)</label>
+                    <input type="number" id="modal-bio-hscrp" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>Ferritin (ng/mL)</label>
+                    <input type="number" id="modal-bio-ferritin" step="1">
+                </div>
+                <div class="flex-row mt-2" style="gap:8px;">
+                    <button class="btn btn-primary flex-1" id="modal-bio-save">Save Biomarker</button>
+                    <button class="btn btn-secondary flex-1" id="modal-bio-cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals or Overlays -->
+    <div id="toast" class="toast">Saved</div>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>lucide.createIcons();</script>
+    <script src="app.js?v=25"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                reg.onupdatefound = () => {
+                    const newWorker = reg.installing;
+                    newWorker.onstatechange = () => {
+                        if (newWorker.state === 'activated') {
+                            console.log('SW v25 activated.');
+                        }
+                    };
+                };
+            });
+        }
+    </script>
+</body>
+</html>
