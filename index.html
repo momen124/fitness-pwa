@@ -425,6 +425,38 @@
                 </div>
 
                 <div class="glass-card mt-4">
+                    <h2 class="mb-3">📝 Daily Wellness Check-In</h2>
+                    <p class="text-sm text-secondary mb-3">Quick subjective snapshot. Rate each area 1-5.</p>
+                    <div class="form-grid" id="wellness-form">
+                        <div class="input-group">
+                            <label>Overall Mood (1-5)</label>
+                            <input type="range" id="wq-mood" min="1" max="5" value="3" class="w-full">
+                            <div class="flex-row" style="justify-content:space-between;font-size:0.65rem;color:var(--text-secondary)"><span>Terrible</span><span>Great</span></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Digestion (1-5)</label>
+                            <input type="range" id="wq-digestion" min="1" max="5" value="3" class="w-full">
+                            <div class="flex-row" style="justify-content:space-between;font-size:0.65rem;color:var(--text-secondary)"><span>Bloated</span><span>Perfect</span></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Joint Feel (1-5)</label>
+                            <input type="range" id="wq-joints" min="1" max="5" value="3" class="w-full">
+                            <div class="flex-row" style="justify-content:space-between;font-size:0.65rem;color:var(--text-secondary)"><span>Stiff</span><span>Fluid</span></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Confidence (1-5)</label>
+                            <input type="range" id="wq-confidence" min="1" max="5" value="3" class="w-full">
+                            <div class="flex-row" style="justify-content:space-between;font-size:0.65rem;color:var(--text-secondary)"><span>Low</span><span>High</span></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Soreness Locations</label>
+                            <input type="text" id="wq-soreness-locs" placeholder="e.g. quads, lower back">
+                        </div>
+                        <button class="btn btn-primary btn-sm w-full" id="btn-save-wellness">Save Check-In</button>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
                     <h2 class="mb-4">⚕️ Granular Injury Tracker</h2>
                     <div class="form-grid">
                         <div class="flex-row">
@@ -1836,6 +1868,154 @@
                                 </div>
                             </div>
                             <button class="btn btn-primary btn-sm w-full" id="btn-add-race">Add Race</button>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>📐 Custom Metrics</h2>
+                    <p class="text-sm text-secondary mb-3">Define and track your own metrics beyond the built-in fields.</p>
+                    <div id="custom-metrics-list" class="custom-metrics-list"></div>
+                    <details class="mt-3">
+                        <summary class="text-sm" style="cursor:pointer;color:var(--text-secondary)">+ Define New Metric</summary>
+                        <div class="form-grid mt-2">
+                            <div class="flex-row" style="gap:0.5rem">
+                                <div class="input-group flex-1">
+                                    <label>Metric Name</label>
+                                    <input type="text" id="cm-name" placeholder="e.g. Grip Strength">
+                                </div>
+                                <div class="input-group" style="min-width:100px">
+                                    <label>Type</label>
+                                    <select id="cm-type">
+                                        <option value="number">Number</option>
+                                        <option value="scale">Scale (1-10)</option>
+                                        <option value="boolean">Yes/No</option>
+                                        <option value="text">Text</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex-row" style="gap:0.5rem">
+                                <div class="input-group flex-1">
+                                    <label>Unit (optional)</label>
+                                    <input type="text" id="cm-unit" placeholder="kg, sec, reps...">
+                                </div>
+                                <div class="input-group" style="min-width:100px">
+                                    <label>&nbsp;</label>
+                                    <button class="btn btn-primary btn-sm w-full" id="btn-add-cm">Add Metric</button>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>🌙 Hormone Cycle Tracking</h2>
+                    <p class="text-sm text-secondary mb-3">Track cycle phase, basal temp, and energy for training adjustment.</p>
+                    <div class="form-grid">
+                        <div class="flex-row" style="gap:0.5rem">
+                            <div class="input-group flex-1">
+                                <label>Cycle Day</label>
+                                <input type="number" id="hormone-cycle-day" min="1" max="45" placeholder="Day">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Phase</label>
+                                <select id="hormone-phase">
+                                    <option value="">--</option>
+                                    <option value="menstrual">Menstrual</option>
+                                    <option value="follicular">Follicular</option>
+                                    <option value="ovulation">Ovulation</option>
+                                    <option value="luteal">Luteal</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex-row" style="gap:0.5rem">
+                            <div class="input-group flex-1">
+                                <label>Basal Temp (°C)</label>
+                                <input type="number" id="hormone-temp" step="0.01" placeholder="36.5">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Energy (1-5)</label>
+                                <input type="number" id="hormone-energy" min="1" max="5" placeholder="3">
+                            </div>
+                        </div>
+                        <div class="flex-row" style="gap:0.5rem">
+                            <div class="input-group flex-1">
+                                <label>Cramps (0-10)</label>
+                                <input type="number" id="hormone-cramps" min="0" max="10" step="0.5" placeholder="0">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label class="flex-row" style="gap:0.3rem;align-items:center">
+                                    <input type="checkbox" id="hormone-bloating"> Bloating
+                                </label>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Notes</label>
+                            <input type="text" id="hormone-notes" placeholder="Optional notes...">
+                        </div>
+                        <button class="btn btn-primary btn-sm w-full" id="btn-save-hormone">Save Today's Entry</button>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>📸 Progress Photos</h2>
+                    <p class="text-sm text-secondary mb-3">Track visual changes. Photos stored locally (Supabase Storage coming soon).</p>
+                    <div id="photo-timeline" class="photo-timeline"></div>
+                    <div class="form-grid mt-3">
+                        <div class="input-group">
+                            <label>Photo Type</label>
+                            <select id="photo-type">
+                                <option value="front">Front</option>
+                                <option value="back">Back</option>
+                                <option value="side_left">Side (Left)</option>
+                                <option value="side_right">Side (Right)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Choose Photo</label>
+                            <input type="file" id="photo-file" accept="image/*" capture="environment">
+                        </div>
+                        <button class="btn btn-primary btn-sm w-full" id="btn-upload-photo">Save Photo</button>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>📋 Training Plan</h2>
+                    <p class="text-sm text-secondary mb-3">Plan your weekly training structure. Links to race events for tapering.</p>
+                    <div id="training-plan-view"></div>
+                    <details class="mt-3">
+                        <summary class="text-sm" style="cursor:pointer;color:var(--text-secondary)">+ Create Training Plan</summary>
+                        <div class="form-grid mt-2">
+                            <div class="input-group">
+                                <label>Plan Name</label>
+                                <input type="text" id="tp-name" placeholder="e.g. 12-Week Base Builder">
+                            </div>
+                            <div class="flex-row" style="gap:0.5rem">
+                                <div class="input-group flex-1">
+                                    <label>Start Date</label>
+                                    <input type="date" id="tp-start">
+                                </div>
+                                <div class="input-group flex-1">
+                                    <label>End Date</label>
+                                    <input type="date" id="tp-end">
+                                </div>
+                            </div>
+                            <div class="flex-row" style="gap:0.5rem">
+                                <div class="input-group flex-1">
+                                    <label>Phase</label>
+                                    <select id="tp-phase">
+                                        <option value="base">Base</option>
+                                        <option value="build">Build</option>
+                                        <option value="peak">Peak</option>
+                                        <option value="recover">Recovery</option>
+                                    </select>
+                                </div>
+                                <div class="input-group flex-1">
+                                    <label>Target Race</label>
+                                    <select id="tp-race"><option value="">None</option></select>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm w-full" id="btn-create-tp">Create Plan</button>
                         </div>
                     </details>
                 </div>

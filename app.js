@@ -285,7 +285,10 @@ function getEmptyLog() {
         inbodyDate: '', inbodyWeight: '', inbodySmm: '', inbodyBf: '', inbodyTbw: '', inbodyBmr: '', inbodyNotes: '',
         workStress: 1,
         bodyFatPct: '',
-        supplements: []
+        supplements: [],
+        customMetrics: {},
+        wellness: null,
+        hormone: null
     };
 }
 
@@ -2015,6 +2018,255 @@ function addRaceFromUI() {
     showToast('Race added.');
 }
 
+function getCustomMetrics() {
+    const saved = localStorage.getItem('n1_custom_metrics');
+    return saved ? JSON.parse(saved) : [];
+}
+
+function saveCustomMetrics(metrics) {
+    localStorage.setItem('n1_custom_metrics', JSON.stringify(metrics));
+}
+
+function renderCustomMetrics() {
+    const container = document.getElementById('custom-metrics-list');
+    if (!container) return;
+    const metrics = getCustomMetrics();
+    if (metrics.length === 0) {
+        container.innerHTML = '<div class="text-sm text-secondary">No custom metrics defined. Create one to start tracking.</div>';
+        return;
+    }
+    const today = state.logs[getTodayKey()] || {};
+    const cmValues = today.customMetrics || {};
+    container.innerHTML = metrics.filter(m => m.active !== false).map(m => {
+        const val = cmValues[m.name] || '';
+        const inputType = m.type === 'boolean' ? 'checkbox' : m.type === 'scale' ? 'range' : m.type === 'number' ? 'number' : 'text';
+        const inputHtml = m.type === 'boolean'
+            ? `<input type="checkbox" data-cm="${m.name}" ${val ? 'checked' : ''} style="width:auto">`
+            : m.type === 'scale'
+            ? `<input type="range" min="1" max="10" data-cm="${m.name}" value="${val || 5}" style="width:80px">`
+            : `<input type="${m.type}" data-cm="${m.name}" value="${val}" placeholder="${m.unit || ''}" style="width:80px">`;
+        return `<div class="cm-item">
+            <div><span class="cm-name">${m.name}</span> <span class="cm-type">${m.type}${m.unit ? ' ('+m.unit+')' : ''}</span></div>
+            <div class="flex-row" style="gap:0.3rem;align-items:center">${inputHtml}</div>
+        </div>`;
+    }).join('');
+    container.querySelectorAll('[data-cm]').forEach(el => {
+        el.addEventListener('change', collectCustomMetrics);
+    });
+}
+
+function collectCustomMetrics() {
+    const today = getTodayKey();
+    if (!state.logs[today]) state.logs[today] = getEmptyLog();
+    const vals = {};
+    document.querySelectorAll('[data-cm]').forEach(el => {
+        const name = el.dataset.cm;
+        vals[name] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    state.logs[today].customMetrics = vals;
+    saveData();
+}
+
+function addCustomMetricFromUI() {
+    const name = document.getElementById('cm-name').value.trim();
+    const type = document.getElementById('cm-type').value;
+    const unit = document.getElementById('cm-unit').value.trim();
+    if (!name) return;
+    const metrics = getCustomMetrics();
+    if (metrics.find(m => m.name === name)) { showToast('Metric already exists.'); return; }
+    metrics.push({ name, type, unit, active: true });
+    saveCustomMetrics(metrics);
+    document.getElementById('cm-name').value = '';
+    document.getElementById('cm-unit').value = '';
+    renderCustomMetrics();
+    showToast('Custom metric added.');
+}
+
+function saveWellnessCheckIn() {
+    const today = getTodayKey();
+    if (!state.logs[today]) state.logs[today] = getEmptyLog();
+    state.logs[today].wellness = {
+        mood: parseInt(document.getElementById('wq-mood').value),
+        digestion: parseInt(document.getElementById('wq-digestion').value),
+        joints: parseInt(document.getElementById('wq-joints').value),
+        confidence: parseInt(document.getElementById('wq-confidence').value),
+        sorenessLocs: document.getElementById('wq-soreness-locs').value,
+        timestamp: new Date().toISOString()
+    };
+    saveData();
+    showToast('Wellness check-in saved.');
+}
+
+function restoreWellnessForm() {
+    const today = state.logs[getTodayKey()];
+    if (!today || !today.wellness) return;
+    const w = today.wellness;
+    const setRange = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    setRange('wq-mood', w.mood || 3);
+    setRange('wq-digestion', w.digestion || 3);
+    setRange('wq-joints', w.joints || 3);
+    setRange('wq-confidence', w.confidence || 3);
+    const locs = document.getElementById('wq-soreness-locs');
+    if (locs) locs.value = w.sorenessLocs || '';
+}
+
+function saveHormoneEntry() {
+    const today = getTodayKey();
+    if (!state.logs[today]) state.logs[today] = getEmptyLog();
+    state.logs[today].hormone = {
+        cycleDay: parseInt(document.getElementById('hormone-cycle-day').value) || null,
+        phase: document.getElementById('hormone-phase').value,
+        basalTempC: parseFloat(document.getElementById('hormone-temp').value) || null,
+        energyLevel: parseInt(document.getElementById('hormone-energy').value) || null,
+        cramps: parseFloat(document.getElementById('hormone-cramps').value) || 0,
+        bloating: document.getElementById('hormone-bloating').checked,
+        notes: document.getElementById('hormone-notes').value
+    };
+    saveData();
+    showToast('Hormone entry saved.');
+}
+
+function restoreHormoneForm() {
+    const today = state.logs[getTodayKey()];
+    if (!today || !today.hormone) return;
+    const h = today.hormone;
+    const s = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    s('hormone-cycle-day', h.cycleDay || '');
+    s('hormone-phase', h.phase || '');
+    s('hormone-temp', h.basalTempC || '');
+    s('hormone-energy', h.energyLevel || '');
+    s('hormone-cramps', h.cramps || '');
+    const bl = document.getElementById('hormone-bloating');
+    if (bl) bl.checked = !!h.bloating;
+    s('hormone-notes', h.notes || '');
+}
+
+function getPhotoStore() {
+    const saved = localStorage.getItem('n1_photos');
+    return saved ? JSON.parse(saved) : [];
+}
+
+function savePhotoStore(photos) {
+    localStorage.setItem('n1_photos', JSON.stringify(photos));
+}
+
+function renderPhotoTimeline() {
+    const container = document.getElementById('photo-timeline');
+    if (!container) return;
+    const photos = getPhotoStore();
+    if (photos.length === 0) {
+        container.innerHTML = '<div class="text-sm text-secondary">No progress photos yet.</div>';
+        return;
+    }
+    container.innerHTML = photos.slice(-20).reverse().map(p =>
+        `<img class="photo-thumb" src="${p.dataUrl}" title="${p.date} - ${p.type}" alt="${p.type}">`
+    ).join('');
+}
+
+function uploadPhoto() {
+    const fileInput = document.getElementById('photo-file');
+    const type = document.getElementById('photo-type').value;
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+    const file = fileInput.files[0];
+    if (file.size > 5 * 1024 * 1024) { showToast('Photo too large (max 5MB).'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const photos = getPhotoStore();
+        photos.push({
+            id: Date.now().toString(36),
+            date: getTodayKey(),
+            type: type,
+            dataUrl: e.target.result
+        });
+        savePhotoStore(photos);
+        renderPhotoTimeline();
+        fileInput.value = '';
+        showToast('Photo saved.');
+    };
+    reader.readAsDataURL(file);
+}
+
+function getTrainingPlanStore() {
+    const saved = localStorage.getItem('n1_training_plans');
+    return saved ? JSON.parse(saved) : [];
+}
+
+function saveTrainingPlanStore(plans) {
+    localStorage.setItem('n1_training_plans', JSON.stringify(plans));
+}
+
+function renderTrainingPlans() {
+    const container = document.getElementById('training-plan-view');
+    if (!container) return;
+    const plans = getTrainingPlanStore();
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    if (plans.length === 0) {
+        container.innerHTML = '<div class="text-sm text-secondary">No training plans yet.</div>';
+        return;
+    }
+    container.innerHTML = plans.filter(p => p.active).map(p => {
+        const weekHtml = days.map((d, i) => {
+            const dayPlan = (p.weeklyStructure || {})[i] || { type: 'rest', desc: 'Rest' };
+            const cls = dayPlan.type === 'cardio' ? 'cardio' : dayPlan.type === 'strength' ? 'strength' : dayPlan.type === 'mixed' ? 'mixed' : 'rest';
+            return `<div class="tp-day ${cls}"><div class="tp-day-header">${d}</div>${dayPlan.desc}</div>`;
+        }).join('');
+        return `<div class="glass-card mt-2" style="padding:0.8rem">
+            <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                <div><strong>${p.name}</strong> <span class="text-sm text-secondary">${p.phase} phase</span></div>
+                <button class="btn-sm" onclick="deactivatePlan('${p.id}')">Stop</button>
+            </div>
+            <div class="text-sm text-secondary mb-2">${p.startDate} → ${p.endDate}</div>
+            <div class="tp-week">${weekHtml}</div>
+        </div>`;
+    }).join('');
+}
+
+function createTrainingPlan() {
+    const name = document.getElementById('tp-name').value.trim();
+    const startDate = document.getElementById('tp-start').value;
+    const endDate = document.getElementById('tp-end').value;
+    const phase = document.getElementById('tp-phase').value;
+    if (!name || !startDate || !endDate) return;
+    const plans = getTrainingPlanStore();
+    const defaultWeek = {
+        0: { type: 'strength', desc: 'Heavy Day A' },
+        1: { type: 'cardio', desc: 'Zone 2 45min' },
+        2: { type: 'mixed', desc: 'Tendon + Light Cardio' },
+        3: { type: 'strength', desc: 'Heavy Day B' },
+        4: { type: 'cardio', desc: 'Zone 2 60min' },
+        5: { type: 'cardio', desc: 'Long Easy' },
+        6: { type: 'rest', desc: 'Rest' }
+    };
+    plans.push({
+        id: Date.now().toString(36),
+        name, startDate, endDate, phase,
+        weeklyStructure: defaultWeek,
+        active: true
+    });
+    saveTrainingPlanStore(plans);
+    document.getElementById('tp-name').value = '';
+    renderTrainingPlans();
+    showToast('Training plan created.');
+}
+
+function deactivatePlan(id) {
+    const plans = getTrainingPlanStore();
+    const plan = plans.find(p => p.id === id);
+    if (plan) plan.active = false;
+    saveTrainingPlanStore(plans);
+    renderTrainingPlans();
+    showToast('Plan deactivated.');
+}
+
+function populateRaceDropdown() {
+    const select = document.getElementById('tp-race');
+    if (!select) return;
+    const races = getRaceStore().filter(r => r.status !== 'completed');
+    select.innerHTML = '<option value="">None</option>' + races.map(r =>
+        `<option value="${r.id}">${r.name} (${r.date})</option>`
+    ).join('');
+}
+
 function exportFullBackup() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3137,8 +3389,25 @@ function bindLogForm() {
     const btnAddRace = document.getElementById('btn-add-race');
     if (btnAddRace) btnAddRace.addEventListener('click', addRaceFromUI);
 
+    const btnAddCm = document.getElementById('btn-add-cm');
+    if (btnAddCm) btnAddCm.addEventListener('click', addCustomMetricFromUI);
+    const btnSaveWellness = document.getElementById('btn-save-wellness');
+    if (btnSaveWellness) btnSaveWellness.addEventListener('click', saveWellnessCheckIn);
+    const btnSaveHormone = document.getElementById('btn-save-hormone');
+    if (btnSaveHormone) btnSaveHormone.addEventListener('click', saveHormoneEntry);
+    const btnUploadPhoto = document.getElementById('btn-upload-photo');
+    if (btnUploadPhoto) btnUploadPhoto.addEventListener('click', uploadPhoto);
+    const btnCreateTp = document.getElementById('btn-create-tp');
+    if (btnCreateTp) btnCreateTp.addEventListener('click', createTrainingPlan);
+
     renderGearList();
     renderRaceList();
+    renderCustomMetrics();
+    renderPhotoTimeline();
+    renderTrainingPlans();
+    populateRaceDropdown();
+    restoreWellnessForm();
+    restoreHormoneForm();
 }
 
 
