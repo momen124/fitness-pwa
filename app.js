@@ -504,6 +504,7 @@ async function saveData(dateKey = getTodayKey()) {
             try {
                 await supabaseClient.functions.invoke('save-daily-log', {
                     method: 'POST',
+                    headers: { 'x-user-id': getUserId() },
                     body: { logDate: dateKey, data: log, userId: getUserId() }
                 });
             } catch (efErr) {

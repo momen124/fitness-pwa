@@ -1,22 +1,12 @@
 -- pg_cron: Auto-run passive sync every 3 hours
--- Run this in the Supabase SQL Editor (requires pg_cron extension)
 
--- 1. Enable pg_cron extension (if not already enabled)
 CREATE EXTENSION IF NOT EXISTS pg_cron;
-
--- 2. Schedule the passive sync edge function every 3 hours
--- Note: The edge function is invoked via pg_net or supabase/functions
--- Since pg_cron can call functions directly, we use a simple approach:
--- Schedule an HTTP request to the edge function using pg_net
-
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- Remove existing schedule if any
 SELECT cron.unschedule('passive-sync-cron') WHERE EXISTS (
     SELECT 1 FROM cron.job WHERE jobname = 'passive-sync-cron'
 );
 
--- Schedule: every 3 hours at minute 0
 SELECT cron.schedule(
     'passive-sync-cron',
     '0 */3 * * *',
@@ -25,7 +15,9 @@ SELECT cron.schedule(
         url := 'https://vbfefnljqfcahuhxzfwp.supabase.co/functions/v1/sync-passive',
         headers := jsonb_build_object(
             'Content-Type', 'application/json',
-            'Authorization', 'Bearer ' || current_setting('request.jwt.claims', true)::json->>'role'
+            'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiZmVmbmxqcWZjYWh1aHh6ZndwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNTI2MTEsImV4cCI6MjA5NTkyODYxMX0.5T4qT1GUDuWjSBZoCy7ADfmzf8dwVJzIVD4XFKxa-KI',
+            'apikey', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiZmVmbmxqcWZjYWh1aHh6ZndwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNTI2MTEsImV4cCI6MjA5NTkyODYxMX0.5T4qT1GUDuWjSBZoCy7ADfmzf8dwVJzIVD4XFKxa-KI',
+            'x-user-id', '00000000-0000-0000-0000-000000000001'
         ),
         body := '{}'::jsonb
     );
