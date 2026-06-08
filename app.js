@@ -80,25 +80,174 @@ function getTodayKey() { return new Date().toISOString().split('T')[0]; }
 
 const SUPABASE_URL = 'https://vbfefnljqfcahuhxzfwp.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiZmVmbmxqcWZjYWh1aHh6ZndwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNTI2MTEsImV4cCI6MjA5NTkyODYxMX0.5T4qT1GUDuWjSBZoCy7ADfmzf8dwVJzIVD4XFKxa-KI';
+const GUEST_USER_ID = '00000000-0000-0000-0000-000000000001';
 let supabaseClient = null;
+let currentUser = null;
 
 function initSupabase() {
     try {
         if (window.supabase && window.supabase.createClient) {
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log('✅ Supabase SDK initialized.');
+            console.log('Supabase SDK initialized.');
         } else {
-            console.warn('⚠️ Supabase SDK not loaded. Running in offline-only mode.');
+            console.warn('Supabase SDK not loaded. Running in offline-only mode.');
         }
     } catch(e) {
-        console.error('❌ Supabase init failed. Running in offline-only mode.', e);
+        console.error('Supabase init failed.', e);
     }
+}
+
+function getUserId() {
+    if (currentUser && currentUser.id) return currentUser.id;
+    const saved = localStorage.getItem('n1_user_id');
+    if (saved) return saved;
+    return GUEST_USER_ID;
+}
+
+function isGuest() {
+    return getUserId() === GUEST_USER_ID;
+}
+
+async function initAuth() {
+    if (!supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session && session.user) {
+        currentUser = session.user;
+        localStorage.setItem('n1_user_id', currentUser.id);
+        hideAuthOverlay();
+        return;
+    }
+    const guestMode = localStorage.getItem('n1_guest_mode');
+    if (guestMode === 'true') {
+        localStorage.setItem('n1_user_id', GUEST_USER_ID);
+        hideAuthOverlay();
+        return;
+    }
+    showAuthOverlay();
+}
+
+function showAuthOverlay() {
+    const el = document.getElementById('auth-overlay');
+    if (el) el.style.display = 'flex';
+}
+
+function hideAuthOverlay() {
+    const el = document.getElementById('auth-overlay');
+    if (el) el.style.display = 'none';
+}
+
+function showAuthError(msg) {
+    const el = document.getElementById('auth-error');
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
+function hideAuthError() {
+    const el = document.getElementById('auth-error');
+    if (el) el.style.display = 'none';
+}
+
+async function handleLogin() {
+    hideAuthError();
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    if (!email || !password) { showAuthError('Email and password required.'); return; }
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) { showAuthError(error.message); return; }
+    currentUser = data.user;
+    localStorage.setItem('n1_user_id', currentUser.id);
+    localStorage.removeItem('n1_guest_mode');
+    hideAuthOverlay();
+    await loadData();
+    refreshAllViews();
+    showToast('Logged in.');
+}
+
+async function handleSignup() {
+    hideAuthError();
+    const email = document.getElementById('auth-signup-email').value.trim();
+    const password = document.getElementById('auth-signup-password').value;
+    const displayName = document.getElementById('auth-display-name').value.trim();
+    if (!email || !password) { showAuthError('Email and password required.'); return; }
+    if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+    const { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: { data: { display_name: displayName || 'Athlete' } }
+    });
+    if (error) { showAuthError(error.message); return; }
+    currentUser = data.user;
+    if (currentUser) {
+        localStorage.setItem('n1_user_id', currentUser.id);
+        await supabaseClient.from('profiles').upsert({
+            id: currentUser.id,
+            display_name: displayName || 'Athlete',
+            email: currentUser.email
+        });
+        localStorage.removeItem('n1_guest_mode');
+        hideAuthOverlay();
+        await loadData();
+        refreshAllViews();
+        showToast('Account created.');
+    } else {
+        showAuthError('Check your email to confirm your account, then log in.');
+    }
+}
+
+async function handleLogout() {
+    if (supabaseClient) {
+        await supabaseClient.auth.signOut();
+    }
+    currentUser = null;
+    localStorage.removeItem('n1_user_id');
+    localStorage.removeItem('n1_guest_mode');
+    showAuthOverlay();
+    showToast('Logged out.');
+}
+
+function handleGuestMode() {
+    localStorage.setItem('n1_user_id', GUEST_USER_ID);
+    localStorage.setItem('n1_guest_mode', 'true');
+    hideAuthOverlay();
+    showToast('Running as guest. Data saved locally only.');
+}
+
+function bindAuthHandlers() {
+    const btnLogin = document.getElementById('btn-auth-login');
+    if (btnLogin) btnLogin.addEventListener('click', handleLogin);
+    const btnSignup = document.getElementById('btn-auth-signup');
+    if (btnSignup) btnSignup.addEventListener('click', handleSignup);
+    const btnGuest = document.getElementById('btn-auth-guest');
+    if (btnGuest) btnGuest.addEventListener('click', handleGuestMode);
+    const showSignup = document.getElementById('auth-show-signup');
+    if (showSignup) showSignup.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('auth-form-login').style.display = 'none';
+        document.getElementById('auth-form-signup').style.display = 'block';
+        hideAuthError();
+    });
+    const showLogin = document.getElementById('auth-show-login');
+    if (showLogin) showLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('auth-form-signup').style.display = 'none';
+        document.getElementById('auth-form-login').style.display = 'block';
+        hideAuthError();
+    });
+    ['auth-password', 'auth-email'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });
+    });
+    ['auth-signup-password', 'auth-signup-email'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSignup(); });
+    });
 }
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', async () => {
     initNavigation();
     initSupabase();
+    bindAuthHandlers();
+    await initAuth();
     await loadData();
     bindLogForm();
     bindSeeder();
@@ -140,6 +289,7 @@ async function loadData() {
             try {
                 const { data: dashData, error: dashErr } = await supabaseClient.functions.invoke('load-dashboard', {
                     method: 'GET',
+                    headers: { 'x-user-id': getUserId() }
                 });
                 if (!dashErr && dashData && dashData.success && dashData.logs) {
                     loadedFromDashboard = true;
@@ -249,7 +399,7 @@ async function saveData(dateKey = getTodayKey()) {
             try {
                 await supabaseClient.functions.invoke('save-daily-log', {
                     method: 'POST',
-                    body: { logDate: dateKey, data: log }
+                    body: { logDate: dateKey, data: log, userId: getUserId() }
                 });
             } catch (efErr) {
                 console.warn('save-daily-log fallback to n1_logs:', efErr);
@@ -2460,6 +2610,20 @@ function connectStrava() {
 }
 
 function setupSettingsHandlers() {
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', handleLogout);
+        if (!isGuest() && currentUser) btnLogout.style.display = 'block';
+    }
+    const authInfo = document.getElementById('auth-info');
+    if (authInfo) {
+        if (currentUser) {
+            authInfo.textContent = `Logged in as ${currentUser.email}${isGuest() ? ' (Guest)' : ''}`;
+        } else if (isGuest()) {
+            authInfo.textContent = 'Running in guest mode. Data saved locally.';
+        }
+    }
+
     const settingsMacro = document.getElementById('settings-macrocycle');
     if (settingsMacro && !settingsMacro.dataset.bound) {
         settingsMacro.addEventListener('change', () => {

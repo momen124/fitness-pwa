@@ -23,6 +23,48 @@
 <base target="_blank">
 </head>
 <body class="mode-alexandria">
+    <div id="auth-overlay" class="auth-overlay" style="display:none">
+        <div class="auth-card glass-card">
+            <div style="text-align:center;margin-bottom:1.5rem">
+                <h1 style="font-size:1.8rem;margin:0">N=1 Lab</h1>
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.3rem">Clinical-grade hybrid athlete dashboard</p>
+            </div>
+            <div id="auth-form-login" class="auth-form">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="auth-password" placeholder="Min 6 characters" autocomplete="current-password">
+                </div>
+                <button class="btn btn-primary w-full" id="btn-auth-login">Log In</button>
+                <button class="btn btn-secondary w-full" id="btn-auth-guest">Continue as Guest</button>
+                <p class="text-sm text-secondary" style="text-align:center;margin-top:0.5rem">
+                    No account? <a href="#" id="auth-show-signup" style="color:#6496ff">Sign up</a>
+                </p>
+            </div>
+            <div id="auth-form-signup" class="auth-form" style="display:none">
+                <div class="input-group">
+                    <label>Display Name</label>
+                    <input type="text" id="auth-display-name" placeholder="Your name">
+                </div>
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="auth-signup-email" placeholder="your@email.com" autocomplete="email">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="auth-signup-password" placeholder="Min 6 characters" autocomplete="new-password">
+                </div>
+                <button class="btn btn-primary w-full" id="btn-auth-signup">Create Account</button>
+                <p class="text-sm text-secondary" style="text-align:center;margin-top:0.5rem">
+                    Have an account? <a href="#" id="auth-show-login" style="color:#6496ff">Log in</a>
+                </p>
+            </div>
+            <div id="auth-error" class="text-sm" style="color:#ff6b6b;text-align:center;margin-top:0.5rem;display:none"></div>
+        </div>
+    </div>
     <a class="skip-link" href="#view-dashboard">Skip to content</a>
     <div id="app" class="app-container">
         <!-- Header -->
@@ -2022,9 +2064,11 @@
 
                 <div class="glass-card mt-4">
                     <h2>📦 Data Management</h2>
+                    <div id="auth-info" class="mb-3 text-sm text-secondary"></div>
                     <div class="form-grid">
                         <button class="btn btn-secondary w-full" id="btn-export-full-backup">Export Full Backup (JSON)</button>
                         <button class="btn btn-danger w-full mt-2" id="btn-reset-data">Reset All Local Data</button>
+                        <button class="btn btn-secondary w-full mt-2" id="btn-logout" style="display:none">Log Out</button>
                     </div>
                 </div>
             </section>
