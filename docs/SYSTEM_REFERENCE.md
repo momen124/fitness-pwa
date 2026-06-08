@@ -4,6 +4,50 @@ Complete documentation of every workflow, data flow, calculation, and business r
 
 ---
 
+## Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph "Client (Browser PWA)"
+        UI[HTML / CSS / JS]
+        LS[localStorage cache]
+        SW[Service Worker v26]
+    end
+
+    subgraph "Supabase Cloud"
+        EF[Edge Functions]
+        DB[(30 Normalized Tables)]
+        ST[Storage: progress-photos]
+        AUTH[Auth Service]
+        CRON[pg_cron: 3h sync]
+    end
+
+    subgraph "External APIs"
+        OWM[OpenWeatherMap]
+        STRAVA[Strava]
+        ICU[Intervals.icu]
+        GFIT[Google Fit]
+    end
+
+    UI <--> LS
+    UI -->|save| EF
+    EF -->|write| DB
+    EF -->|read| DB
+    UI -->|GET load-dashboard| EF
+    UI -->|POST save-daily-log| EF
+    UI -->|upload photo| ST
+    ST -->|public URL| UI
+    AUTH -->|JWT session| UI
+    CRON -->|trigger| EF
+    EF -->|fetch weather| OWM
+    EF -->|fetch activities| STRAVA
+    EF -->|fetch activities| ICU
+    EF -->|fetch nutrition| GFIT
+    SW -->|cache| UI
+```
+
+---
+
 ## Table of Contents
 
 1. [Startup Sequence](#1-startup-sequence)
@@ -23,23 +67,30 @@ Complete documentation of every workflow, data flow, calculation, and business r
 
 ## 1. Startup Sequence
 
-```
-DOMContentLoaded
-  │
-  ├─ 1. initNavigation()         Bind tab buttons, sub-pills, form pills
-  ├─ 2. initSupabase()           Create Supabase client from env vars
-  ├─ 3. bindAuthHandlers()       Wire login/signup/guest buttons
-  ├─ 4. await initAuth()         Check session → restore or show auth overlay
-  ├─ 5. await loadData()         Full data load (localStorage → cloud → merge)
-  ├─ 6. bindLogForm()            Wire "Save Mission Log" + all category buttons
-  ├─ 7. bindSeeder()             (empty, seeder removed)
-  ├─ 8. bindLibrary()            Wire knowledge library search/filter/accordion
-  ├─ 9. bindStravaInbox()        Wire Strava sync button + activity cards
-  ├─ 10. setupCockpitHandlers()  Wire cockpit quick-action buttons
-  ├─ 11. setupSettingsHandlers() Wire settings controls
-  ├─ 12. refreshAllViews()       Re-render all UI from state
-  ├─ 13. updateSettingsView()    Populate settings fields
-  └─ 14. fetchWeather()          If API key set, fetch weather → refreshAllViews()
+```mermaid
+flowchart TD
+    A[DOMContentLoaded] --> B[initNavigation]
+    B --> C[initSupabase]
+    C --> D[bindAuthHandlers]
+    D --> E[await initAuth]
+    E --> F{Session exists?}
+    F -->|Yes| G[Hide auth overlay]
+    F -->|No| H{Guest mode?}
+    H -->|Yes| G
+    H -->|No| I[Show auth overlay]
+    G --> J[await loadData]
+    I --> J
+    J --> K[bindLogForm]
+    K --> L[bindLibrary]
+    L --> M[bindStravaInbox]
+    M --> N[setupCockpitHandlers]
+    N --> O[setupSettingsHandlers]
+    O --> P[refreshAllViews]
+    P --> Q[updateSettingsView]
+    Q --> R{Weather API key set?}
+    R -->|Yes| S[fetchWeather → refreshAllViews]
+    R -->|No| T[Done]
+    S --> T
 ```
 
 ---
@@ -68,34 +119,60 @@ DOMContentLoaded
 - `n1_logs` compat: non-guest users get `date_id = "{uid.slice(0,8)}_{date}"` prefix
 - RLS policies on all tables use `public.auth_uid()` helper (returns JWT `auth.uid()` or guest UUID)
 
+```mermaid
+stateDiagram-v2
+    [*] --> Unauthenticated : App loads
+    Unauthenticated --> Authenticated : handleLogin ✅
+    Unauthenticated --> Authenticated : handleSignup ✅
+    Unauthenticated --> Guest : handleGuestMode
+    Authenticated --> Unauthenticated : handleLogout
+    Guest --> Unauthenticated : handleLogout
+
+    state Authenticated {
+        [*] --> LoadCloud
+        LoadCloud --> SessionActive
+    }
+    state Guest {
+        [*] --> GuestSession
+        GuestSession --> SharedUUID : Uses 0000...0001
+    }
+```
+
 ---
 
 ## 3. Data Load Flow
 
-```
-loadData()
-  │
-  ├─ 1. Deserialize localStorage('n1_pwa_state') → merge into global state
-  │     - Normalize every log via normalizeLog()
-  │     - Ensure today's log exists
-  │
-  ├─ 2. IF supabaseClient:
-  │     ├─ TRY: invoke('load-dashboard', GET, headers: {x-user-id})
-  │     │     → Merges normalized table data into state.logs per date
-  │     │     → Captures latestBodyScan from meta
-  │     │
-  │     └─ FALLBACK: Query n1_logs directly
-  │           - Scoped by date_id prefix for non-guest users
-  │           - Strip prefix to recover actual date
-  │           - Extract cloud fields, import external activities
-  │
-  └─ 3. loadCloudSettings()
-        ├─ Pull gear_items          → merge into localStorage gear store
-        ├─ Pull race_events         → merge into localStorage race store
-        ├─ Pull supplement_catalog  → merge into localStorage supp store
-        ├─ Pull training_plans      → merge into localStorage plan store
-        ├─ Pull custom_metric_defs  → merge into localStorage metrics store
-        └─ loadPhotosFromCloud()    → list Supabase Storage, get public URLs
+```mermaid
+flowchart TD
+    A[loadData] --> B[Read localStorage n1_pwa_state]
+    B --> C[Parse JSON → merge into global state]
+    C --> D[Normalize all logs]
+    D --> E[Ensure today log exists]
+    E --> F{supabaseClient?}
+    F -->|No| L
+    F -->|Yes| G[TRY: invoke load-dashboard]
+    G --> H{Success?}
+    H -->|Yes| I[Merge dashData.logs into state]
+    I --> L
+    H -->|No| J[FALLBACK: Query n1_logs directly]
+    J --> K[Scope by date_id prefix, strip prefix, merge]
+    K --> L
+
+    L[loadCloudSettings] --> M[Pull gear_items]
+    L --> N[Pull race_events]
+    L --> O[Pull supplement_catalog]
+    L --> P[Pull training_plans]
+    L --> Q[Pull custom_metric_definitions]
+    L --> R[loadPhotosFromCloud]
+
+    M --> S[Merge cloud items not in localStorage]
+    N --> S
+    O --> S
+    P --> S
+    Q --> S
+    R --> T[List Supabase Storage → get public URLs]
+    S --> U[Re-render UI]
+    T --> U
 ```
 
 ### Cloud Pull Merge Logic
@@ -105,20 +182,20 @@ Each category uses a **merge-only** strategy: cloud items whose `name` doesn't e
 
 ## 4. Data Save Flow
 
-```
-saveData(dateKey = today)
-  │
-  ├─ 1. Serialize state → localStorage('n1_pwa_state')
-  │
-  ├─ 2. refreshAllViews()  (immediate UI update)
-  │
-  └─ 3. IF supabaseClient:
-        ├─ TRY: invoke('save-daily-log', POST, body: {logDate, data, userId})
-        │     → Fans out to 9 normalized tables + n1_logs compat
-        │
-        └─ FALLBACK: Direct n1_logs upsert
-              - Scoped date_id with user prefix
-              - Embeds _user_id in JSONB data
+```mermaid
+flowchart TD
+    A[saveData] --> B[Serialize state → localStorage]
+    B --> C[refreshAllViews — immediate UI update]
+    C --> D{supabaseClient?}
+    D -->|No| E[Done — offline only]
+    D -->|Yes| F[TRY: invoke save-daily-log POST]
+    F --> G{Success?}
+    G -->|Yes| H[Fan out to 9 normalized tables + n1_logs compat]
+    G -->|No| I[FALLBACK: Direct n1_logs upsert]
+    I --> J[Scope date_id with user prefix]
+    J --> K[Embed _user_id in JSONB data]
+    H --> L[Done]
+    K --> L
 ```
 
 ### What Gets Saved
@@ -140,6 +217,38 @@ The entire `state.logs[today]` object (~70 flat fields) is sent. The edge functi
 
 ### 5a. `save-daily-log` (POST)
 
+```mermaid
+flowchart TD
+    A[POST /save-daily-log] --> B[Parse body: userId, logDate, data]
+    B --> C[Upsert daily_logs]
+    C --> D[Upsert recovery_logs]
+    D --> E[Upsert nutrition_logs]
+    E --> F{cardioType ≠ NONE?}
+    F -->|Yes| G[Upsert workout_sessions cardio]
+    F -->|No| H{gymType ≠ NONE?}
+    G --> H
+    H -->|Yes| I[Upsert workout_sessions strength → .select]
+    I --> J[Upsert gym_sessions]
+    J --> K{liftName set?}
+    K -->|Yes| L[Insert strength_sets with e1RM]
+    K -->|No| M{injuryLoc set?}
+    L --> M
+    H -->|No| M
+    M -->|Yes| N[Insert pain_logs]
+    M -->|No| O{inbodyDate set?}
+    N --> O
+    O -->|Yes| P[Upsert body_scan_logs]
+    O -->|No| Q{Any bio* fields?}
+    P --> Q
+    Q -->|Yes| R[Upsert biomarker_logs]
+    Q -->|No| S{Any mobility flags?}
+    R --> S
+    S -->|Yes| T[Upsert mobility_tendon_checklists]
+    S -->|No| U[Upsert n1_logs compat]
+    T --> U
+    U --> V[Return results JSON]
+```
+
 **Input**: `{ userId, logDate, data: {...} }` + header `x-user-id`
 
 **Processing**:
@@ -158,6 +267,25 @@ The entire `state.logs[today]` object (~70 flat fields) is sent. The edge functi
 **Output**: `{ success, date, results: { daily_logs: "ok", recovery_logs: "ok", ... } }`
 
 ### 5b. `load-dashboard` (GET)
+
+```mermaid
+flowchart LR
+    subgraph "12 Table Queries (parallel concept, sequential execution)"
+        A[daily_logs] --> M[Merge into logs_by_date]
+        B[recovery_logs] --> M
+        C[nutrition_logs] --> M
+        D[workout_sessions cardio] --> M
+        E[gym_sessions] --> M
+        F[strength_sets via gym IDs] --> M
+        G[pain_logs] --> M
+        H[body_scan_logs] --> M
+        I[biomarker_logs] --> M
+        J[mobility_tendon_checklists] --> M
+        K[weather_snapshots] --> M
+        L[movement_quality_logs] --> M
+    end
+    M --> O["Return { logs, meta }"]
+```
 
 **Input**: Header `x-user-id` OR query param `userId`; query param `days` (default 120)
 
@@ -178,6 +306,29 @@ The entire `state.logs[today]` object (~70 flat fields) is sent. The edge functi
 **Output**: `{ success, logs: { "2026-06-09": {...} }, meta: { totalDays, dateRange, latestBodyScan } }`
 
 ### 5c. `sync-passive` (POST/GET)
+
+```mermaid
+flowchart TD
+    A[sync-passive trigger] --> B[Fetch OpenWeatherMap]
+    B --> C[Refresh Strava token]
+    C --> D[Fetch Strava activities]
+    D --> E{Cardio found?}
+    E -->|Yes| F[Normalize activities]
+    E -->|No| G[Fetch Intervals.icu]
+    G --> F
+    F --> H[Refresh Google Fit token]
+    H --> I[Aggregate Google Fit nutrition]
+    I --> J[Aggregate Google Fit activity]
+    J --> K[Merge into n1_logs JSONB]
+    K --> L[Upsert weather_snapshots]
+    L --> M{Cardio detected?}
+    M -->|Yes| N[Upsert workout_sessions]
+    M -->|No| O{Calories detected?}
+    N --> O
+    O -->|Yes| P[Upsert nutrition_logs]
+    O -->|No| Q[Return sync result]
+    P --> Q
+```
 
 **Trigger**: pg_cron every 3 hours, or manual from Settings
 
@@ -204,6 +355,95 @@ The entire `state.logs[today]` object (~70 flat fields) is sent. The edge functi
 ## 6. Database Schema
 
 ### 30 Tables in 8 Tiers
+
+```mermaid
+erDiagram
+    auth_users ||--o{ profiles : "1:1"
+    profiles ||--o{ daily_logs : "writes"
+    profiles ||--o{ recovery_logs : "writes"
+    profiles ||--o{ nutrition_logs : "writes"
+    profiles ||--o{ workout_sessions : "writes"
+    profiles ||--o{ pain_logs : "writes"
+    profiles ||--o{ body_scan_logs : "writes"
+    profiles ||--o{ biomarker_logs : "writes"
+    profiles ||--o{ supplement_catalog : "owns"
+    profiles ||--o{ gear_items : "owns"
+    profiles ||--o{ race_events : "owns"
+    profiles ||--o{ training_plans : "owns"
+    profiles ||--o{ custom_metric_definitions : "owns"
+    profiles ||--o{ hormone_cycle_logs : "writes"
+    profiles ||--o{ wellness_questionnaires : "writes"
+    profiles ||--o{ strava_connections : "owns"
+
+    workout_sessions ||--o{ gym_sessions : "has"
+    gym_sessions ||--o{ strength_sets : "contains"
+    workout_sessions ||--o{ gear_usage_logs : "tracks"
+    training_plans ||--o{ training_plan_days : "contains"
+    supplement_catalog ||--o{ supplement_logs : "logged"
+    custom_metric_definitions ||--o{ custom_metric_logs : "logged"
+
+    daily_logs {
+        uuid user_id PK
+        date log_date PK
+        float morning_weight_kg
+        float body_fat_pct
+        int cns_fatigue_1_5
+        int work_stress_1_5
+        text source
+    }
+    recovery_logs {
+        uuid user_id PK
+        date log_date PK
+        float sleep_hours
+        int sleep_quality_1_5
+        int hrv_ms
+        int resting_hr
+        float soreness_0_10
+        float stress_0_10
+        float motivation_0_10
+    }
+    nutrition_logs {
+        uuid user_id PK
+        date log_date PK
+        int total_cals
+        int protein_g
+        int carbs_g
+        int fats_g
+        float water_liters
+    }
+    workout_sessions {
+        uuid id PK
+        uuid user_id
+        date log_date
+        text session_type
+        text modality
+        int duration_min
+        float distance_km
+        int avg_hr
+        int max_hr
+        int strava_effort
+        text external_id
+    }
+    strength_sets {
+        uuid id PK
+        uuid workout_session_id FK
+        text exercise_name
+        float load_kg
+        int reps
+        int sets
+        float rir
+        float estimated_1rm
+    }
+    pain_logs {
+        uuid id PK
+        uuid user_id
+        date log_date
+        text body_region
+        text side
+        float pain_score_0_10
+        text pain_type
+    }
+```
 
 | Tier | Tables | Purpose |
 |---|---|---|
@@ -232,6 +472,54 @@ All log tables have `deleted_at TIMESTAMP`. Queries filter `WHERE deleted_at IS 
 ## 7. Alert & Decision Engine
 
 ### `buildAthleteOSDecision()` — Master Orchestrator
+
+```mermaid
+flowchart TD
+    A[buildAthleteOSDecision] --> B[calculateACWR]
+    A --> C[getPainTrend]
+    A --> D[calculateReadinessScore]
+    A --> E[calculateRunningShield]
+    A --> F[calculateCatabolicThreat]
+    A --> G[calculateInterferenceShield]
+    A --> H[calculateHeatRisk]
+    A --> I[calculateNutritionCompliance]
+    A --> J[calculateMovementQuality]
+    A --> K[calculateStrengthCompliance]
+    A --> L[getInBodyInterpretation]
+    A --> M[calculateDeloadRecommendation]
+    A --> N[getZoneDistribution]
+    A --> O[calculatePhaseProgression]
+
+    B --> P{Any subsystem RED?}
+    C --> P
+    D --> P
+    E --> P
+    F --> P
+    G --> P
+    H --> P
+    I --> P
+    J --> P
+    K --> P
+    L --> P
+    M --> P
+    N --> P
+    O --> P
+
+    P -->|Yes| Q[Overall: RED]
+    P -->|No| R{Any YELLOW?}
+    R -->|Yes| S[Overall: YELLOW]
+    R -->|No| T[Overall: GREEN]
+
+    Q --> U[buildAlertEngine — sorted red first]
+    S --> U
+    T --> U
+    U --> V[Generate recommended session]
+    V --> W[Generate avoid list]
+    W --> X[Generate recovery instructions]
+    X --> Y[Generate minimum effective dose]
+    Y --> Z[Generate phase gate checks]
+    Z --> AA[renderAthleteOS → DOM]
+```
 
 Runs 14 subsystems, determines overall status (red/yellow/green), and produces:
 
@@ -536,6 +824,71 @@ Cloud: saveTrainingPlanStore() upserts active plans; loadCloudSettings() pulls
 
 ## 10. External Integrations
 
+```mermaid
+flowchart TD
+    subgraph "pg_cron (every 3h)"
+        CRON[passive-sync-cron] --> SP[sync-passive edge function]
+    end
+
+    subgraph "External APIs"
+        OWM[OpenWeatherMap API]
+        STRAVA[Strava API]
+        ICU[Intervals.icu API]
+        GFIT[Google Fit API]
+    end
+
+    SP --> OWM
+    SP --> STRAVA
+    SP --> ICU
+    SP --> GFIT
+
+    subgraph "Supabase Tables"
+        WS[weather_snapshots]
+        WKS[workout_sessions]
+        NL[nutrition_logs]
+        N1[n1_logs JSONB]
+        SC[strava_connections]
+    end
+
+    OWM -->|temp, humidity, wind| WS
+    STRAVA -->|activities + HR/power/pace| WKS
+    STRAVA -->|refresh token| SC
+    ICU -->|activities fallback| WKS
+    GFIT -->|calories, protein, carbs, fat| NL
+    GFIT -->|active minutes| WKS
+    SP -->|merged daily data| N1
+
+    subgraph "Browser App"
+        APP[app.js saveData]
+        LD[app.js loadData]
+    end
+
+    APP -->|POST| SDL[save-daily-log]
+    LD -->|GET| LDB[load-dashboard]
+    SDL -->|fan-out writes| DL2[daily_logs]
+    SDL --> RL2[recovery_logs]
+    SDL --> NL2[nutrition_logs]
+    SDL --> WKS2[workout_sessions]
+    SDL --> GS[gym_sessions]
+    SDL --> SS[strength_sets]
+    SDL --> PL[pain_logs]
+    SDL --> BSL[body_scan_logs]
+    SDL --> BL[biomarker_logs]
+    SDL --> MTC[mobility_tendon_checklists]
+
+    LDB -->|reads 12 tables| DL2
+    LDB --> RL2
+    LDB --> NL2
+    LDB --> WKS2
+    LDB --> GS
+    LDB --> SS
+    LDB --> PL
+    LDB --> BSL
+    LDB --> BL
+    LDB --> MTC
+    LDB --> WS
+```
+
 ### OpenWeatherMap
 ```
 Endpoint: api.openweathermap.org/data/2.5/weather
@@ -583,6 +936,31 @@ Auth: hardcoded anon key + apikey header + guest user-id
 
 13 charts rendered via Chart.js with `requestAnimationFrame` progressive rendering:
 
+```mermaid
+flowchart LR
+    subgraph "Recovery Charts"
+        C1[trendChart — CNS vs Effort 7d]
+        C2[radarChart — Pain/Fatigue/RPE]
+        C3[hrvChart — HRV + Cardio 30d]
+        C4[injuryChart — Pain step line 30d]
+    end
+
+    subgraph "Performance Charts"
+        C5[modalityChart — Cardio doughnut]
+        C6[liftChart — Lift weight 10 sessions]
+        C7[decouplingChart — Pace vs HR scatter]
+        C8[volumePainChart — Sets vs Pain scatter]
+        C9[mentalVsPhysicalChart — Stress vs Load scatter]
+    end
+
+    subgraph "Metabolism Charts"
+        C10[macroChart — Carbs/Pro/Fat stacked 7d]
+        C11[tdeeChart — Weight + TDEE 30d]
+        C12[adaptationVelocityChart — BF% + Velocity]
+        C13[inbodyChart — InBody sparse lines]
+    end
+```
+
 | # | ID | Type | X-axis | Y-axis(s) | Data Source |
 |---|---|---|---|---|---|
 | 1 | trendChart | Line | 7 days | CNS Fatigue + Strava Effort (dual) | `cnsFatigue`, `stravaEffort` |
@@ -617,6 +995,48 @@ Colors: ≥8 red (#ff0000, 0.9 opacity), ≥5 orange (#ff6600, 0.7), ≥1 yellow
 ---
 
 ## 12. Navigation & UI
+
+```mermaid
+flowchart TD
+    NAV[Bottom Nav Bar] --> DASH[Dashboard Tab]
+    NAV --> LOG[Log Tab]
+    NAV --> PROG[Progress Tab]
+    NAV --> SET[Settings Tab]
+    NAV --> LIB[Library Tab]
+
+    DASH --> HUB[Hub Dashboard]
+    HUB --> COCKPIT[Cockpit: ACWR, WBGT, TDEE, Fatigue]
+    HUB --> ATHOS[Athlete OS Decision Panel]
+    HUB --> MILESTONE[Weight Milestones: 95kg Goal]
+    HUB --> STRAVA_INBOX[Strava Activity Inbox]
+
+    LOG --> SUBJECTIVE[Subjective: Weight, CNS, Stress, BodyFat]
+    LOG --> RECOVERY[Recovery: Sleep, HRV, Soreness]
+    LOG --> WELLNESS[Wellness: Mood, Digestion, Joints, Confidence]
+    LOG --> INJURY[Injury: Joint, Pain, Side, Type, Timing]
+    LOG --> STRENGTH[Strength: Gym Type, Lift, Sets, Reps, RIR]
+    LOG --> CARDIO[Cardio: Type, Duration, RPE, Zones 1-5]
+    LOG --> SUPPLEMENTS[Supplements: Tap-to-toggle checklist]
+    LOG --> NUTRITION[Nutrition: Calories, Macros, Water, Sodium]
+    LOG --> BIOMARKER[Biomarker Vault: Testosterone, Cortisol, CRP, Ferritin]
+    LOG --> INBODY[InBody: Weight, SMM, BF%, TBW]
+
+    PROG --> SUB_NAV{Sub-nav Pills}
+    SUB_NAV --> REC Charts[Recovery: Trend, Radar, HRV, Injury]
+    SUB_NAV --> PERF Charts[Performance: Modality, Lift, Decoupling]
+    SUB_NAV --> MET Charts[Metabolism: Macros, TDEE, Velocity, InBody]
+    PROG --> HEATMAP[Joint Armor Heatmap]
+    PROG --> HISTORY[Historical Logs + JSON Dump]
+
+    SET --> MACRO[Macrocycle Selector]
+    SET --> GEAR[Gear Tracker: Shoes/Bike + KM bars]
+    SET --> RACES[Race Events: Countdown + Priority]
+    SET --> CUSTOM[Custom Metrics: Define + Log]
+    SET --> HORMONE[Hormone Cycle: Phase, Temp, Energy]
+    SET --> PHOTOS[Progress Photos: Upload/Timeline]
+    SET --> PLANS[Training Plans: Weekly Builder]
+    SET --> DATA_MGMT[Data: Export CSV, Backup, Reset, Logout]
+```
 
 ### Tabs
 | Tab | View ID | On Activate |
