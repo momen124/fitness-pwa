@@ -394,6 +394,98 @@ async function loadData() {
             }
         } catch (e) { console.error("Supabase sync failed on load", e); }
     }
+
+    await loadCloudSettings();
+}
+
+async function loadCloudSettings() {
+    if (!supabaseClient) return;
+    const uid = getUserId();
+
+    try {
+        const { data: gearRows } = await supabaseClient.from('gear_items').select('*').eq('user_id', uid);
+        if (gearRows && gearRows.length > 0) {
+            const local = getGearStore();
+            const localNames = new Set(local.map(g => g.name));
+            let changed = false;
+            for (const g of gearRows) {
+                if (!localNames.has(g.name)) {
+                    local.push({ id: g.id, name: g.name, type: g.type, lifeKm: g.initial_life_km, currentKm: g.current_km, retired: g.retired });
+                    changed = true;
+                }
+            }
+            if (changed) { saveGearStore(local); renderGearList(); }
+        }
+    } catch (e) { console.warn('Gear cloud pull failed', e); }
+
+    try {
+        const { data: raceRows } = await supabaseClient.from('race_events').select('*').eq('user_id', uid);
+        if (raceRows && raceRows.length > 0) {
+            const local = getRaceStore();
+            const localNames = new Set(local.map(r => r.name));
+            let changed = false;
+            for (const r of raceRows) {
+                if (!localNames.has(r.name)) {
+                    local.push({ id: r.id, name: r.name, date: r.event_date, type: r.event_type, distance: r.distance_km, priority: r.priority, status: r.status });
+                    changed = true;
+                }
+            }
+            if (changed) { saveRaceStore(local); renderRaceList(); }
+        }
+    } catch (e) { console.warn('Race cloud pull failed', e); }
+
+    try {
+        const { data: suppRows } = await supabaseClient.from('supplement_catalog').select('*').eq('user_id', uid).eq('is_active', true);
+        if (suppRows && suppRows.length > 0) {
+            const local = getSuppCatalog();
+            const localNames = new Set(local.map(s => s.name));
+            let changed = false;
+            for (const s of suppRows) {
+                if (!localNames.has(s.name)) {
+                    local.push({ name: s.name, dose: s.dose || '', timing: s.timing || 'any' });
+                    changed = true;
+                }
+            }
+            if (changed) { saveSuppCatalog(local); renderSupplementChecklist(); }
+        }
+    } catch (e) { console.warn('Supplement cloud pull failed', e); }
+
+    try {
+        const { data: planRows } = await supabaseClient.from('training_plans').select('*').eq('user_id', uid).eq('is_active', true);
+        if (planRows && planRows.length > 0) {
+            const local = getTrainingPlanStore();
+            const localNames = new Set(local.map(p => p.name));
+            let changed = false;
+            for (const p of planRows) {
+                if (!localNames.has(p.name) && p.plan_data) {
+                    local.push(p.plan_data);
+                    changed = true;
+                }
+            }
+            if (changed) { saveTrainingPlanStore(local); renderTrainingPlans(); }
+        }
+    } catch (e) { console.warn('Training plan cloud pull failed', e); }
+
+    try {
+        const { data: cmRows } = await supabaseClient.from('custom_metric_definitions').select('*').eq('user_id', uid);
+        if (cmRows && cmRows.length > 0) {
+            const local = getCustomMetrics();
+            const localNames = new Set(local.map(m => m.name));
+            let changed = false;
+            for (const m of cmRows) {
+                if (!localNames.has(m.name)) {
+                    local.push({ name: m.name, type: m.metric_type, unit: m.unit || '' });
+                    changed = true;
+                }
+            }
+            if (changed) { saveCustomMetrics(local); renderCustomMetrics(); }
+        }
+    } catch (e) { console.warn('Custom metrics cloud pull failed', e); }
+
+    try {
+        await loadPhotosFromCloud();
+        renderPhotoTimeline();
+    } catch (e) { console.warn('Photo cloud pull failed', e); }
 }
 
 async function saveData(dateKey = getTodayKey()) {
@@ -3776,58 +3868,6 @@ function runFuelingSim() {
 
 // --- SEEDER ---
 function bindSeeder() {
-}
-
-function seedMockData() {
-    if(!confirm("This will overwrite your existing logs with 90 days of realistic mock data. Proceed?")) return;
-    
-    let d = new Date();
-    d.setDate(d.getDate() - 90);
-    
-    let currentWeight = 119.6;
-    for(let i=0; i<90; i++) {
-        let key = d.toISOString().split('T')[0];
-        let isLegDay = i % 7 === 2;
-        let isCardio = i % 7 === 0 || i % 7 === 3 || i % 7 === 5;
-        let pain = isLegDay ? Math.floor(Math.random() * 3) + 2 : Math.floor(Math.random() * 2);
-        
-        currentWeight -= (Math.random() * 0.1);
-        
-        state.logs[key] = {
-            weight: currentWeight.toFixed(1),
-            cnsFatigue: Math.floor(Math.random() * 3) + 2,
-            workStress: Math.floor(Math.random() * 3) + 1,
-            bodyFatPct: (Math.random() * 5 + 25).toFixed(1),
-            aerobicRpe: isCardio ? Math.floor(Math.random() * 3) + 6 : 0,
-            hrv: Math.floor(Math.random() * 30) + 40,
-            injuryPain: pain,
-            injuryLoc: isLegDay && pain > 0 ? 'Left Patella' : (pain > 0 ? 'Lower Back' : ''),
-            manualCardioDuration: isCardio ? Math.floor(Math.random() * 30) + 30 : 0,
-            cardioStart: isCardio ? '06:30' : '',
-            gymType: isLegDay ? 'DAY_A' : (Math.random() > 0.5 ? 'DAY_B' : 'NONE'),
-            gymStart: isLegDay ? '17:30' : '',
-            prehabDone: isLegDay || Math.random() > 0.45,
-            liftWeight: isLegDay ? Math.floor(Math.random() * 40) + 100 : (Math.random() > 0.5 ? Math.floor(Math.random() * 30) + 60 : ''),
-            liftReps: isLegDay ? 3 : (Math.random() > 0.5 ? 5 : ''),
-            liftSets: isLegDay ? 4 : (Math.random() > 0.5 ? 3 : ''),
-            liftRestSeconds: isLegDay ? 210 : (Math.random() > 0.5 ? 180 : ''),
-            cardioType: isCardio ? (Math.random() > 0.5 ? 'ZONE2' : 'VO2MAX') : 'NONE',
-            muscleSets: isLegDay || !isCardio ? Math.floor(Math.random() * 5) + 10 : 0,
-            totalCals: Math.floor(Math.random() * 500) + 1800,
-            proG: Math.floor(Math.random() * 40) + 140,
-            carbsG: Math.floor(Math.random() * 100) + 200,
-            fatsG: Math.floor(Math.random() * 30) + 50,
-            intraCarbs: isCardio ? Math.floor(Math.random() * 30) + 20 : 0,
-            stravaPace: isCardio ? (Math.random() * 2 + 5).toFixed(2) : 0,
-            stravaHr: isCardio ? Math.floor(Math.random() * 30) + 130 : 0,
-            stravaEffort: isCardio ? Math.floor(Math.random() * 50) + 30 : 0
-        };
-        d.setDate(d.getDate() + 1);
-    }
-    
-    saveData();
-    showToast("90 Days of Mock Data Injected!");
-    setTimeout(() => location.reload(), 1500);
 }
 
 // --- CHARTS ---
