@@ -139,6 +139,16 @@ serve(async (req: Request) => {
             results.workout_session_cardio = wsErr ? wsErr.message : 'ok';
         }
 
+        if (data.gearId && (num(data.manualCardioDuration) > 0 || num(data.distanceKm) > 0)) {
+            const distKm = num(data.distanceKm) || (num(data.manualCardioDuration) * 0.1);
+            await sb.from('gear_usage_logs').insert({
+                user_id: userId,
+                gear_item_id: str(data.gearId),
+                log_date: logDate,
+                distance_km: distKm
+            }).catch(e => console.warn('gear_usage_logs insert skipped', e));
+        }
+
         // 5. Gym session + strength set
         if (data.gymType && data.gymType !== 'NONE') {
             const { data: wsData, error: wsErr2 } = await sb.from('workout_sessions').upsert({

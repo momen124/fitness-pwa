@@ -108,6 +108,52 @@ function isGuest() {
     return getUserId() === GUEST_USER_ID;
 }
 
+function updateSyncStatus(status) {
+    const el = document.getElementById('sync-status');
+    if (!el) return;
+    if (status === 'synced') el.textContent = '🟢';
+    else if (status === 'syncing') el.textContent = '🟡';
+    else if (status === 'offline') el.textContent = '🔴';
+    el.title = status === 'synced' ? 'All data synced' : status === 'syncing' ? 'Syncing...' : 'Offline — changes queued';
+}
+
+function getPendingWrites() {
+    try { return JSON.parse(localStorage.getItem('n1_pending_writes') || '[]'); } catch { return []; }
+}
+
+function queuePendingWrite(dateKey) {
+    const queue = getPendingWrites();
+    if (!queue.includes(dateKey)) queue.push(dateKey);
+    localStorage.setItem('n1_pending_writes', JSON.stringify(queue));
+}
+
+async function replayPendingWrites() {
+    const queue = getPendingWrites();
+    if (queue.length === 0) return;
+    if (!supabaseClient || isGuest()) return;
+    updateSyncStatus('syncing');
+    let remaining = [];
+    for (const dateKey of queue) {
+        const log = state.logs[dateKey];
+        if (!log) continue;
+        try {
+            await supabaseClient.functions.invoke('save-daily-log', {
+                method: 'POST',
+                headers: { 'x-user-id': getUserId() },
+                body: { logDate: dateKey, data: log, userId: getUserId() }
+            });
+        } catch (e) {
+            remaining.push(dateKey);
+            console.warn('Replay failed for', dateKey, e);
+        }
+    }
+    localStorage.setItem('n1_pending_writes', JSON.stringify(remaining));
+    if (remaining.length === 0) {
+        updateSyncStatus('synced');
+        showToast('Pending changes synced to cloud.');
+    }
+}
+
 async function initAuth() {
     if (!supabaseClient) return;
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -151,12 +197,14 @@ async function handleLogin() {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     if (!email || !password) { showAuthError('Email and password required.'); return; }
+    const wasGuest = isGuest();
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) { showAuthError(error.message); return; }
     currentUser = data.user;
     localStorage.setItem('n1_user_id', currentUser.id);
     localStorage.removeItem('n1_guest_mode');
     hideAuthOverlay();
+    if (wasGuest) await migrateGuestData();
     await loadData();
     refreshAllViews();
     showToast('Logged in.');
@@ -185,6 +233,8 @@ async function handleSignup() {
         });
         localStorage.removeItem('n1_guest_mode');
         hideAuthOverlay();
+        const wasGuest = localStorage.getItem('n1_was_guest') === 'true';
+        if (wasGuest) await migrateGuestData();
         await loadData();
         refreshAllViews();
         showToast('Account created.');
@@ -200,6 +250,7 @@ async function handleLogout() {
     currentUser = null;
     localStorage.removeItem('n1_user_id');
     localStorage.removeItem('n1_guest_mode');
+    localStorage.removeItem('n1_was_guest');
     state.logs = {};
     state.supplementCatalog = [];
     state.gearItems = [];
@@ -215,8 +266,30 @@ async function handleLogout() {
 function handleGuestMode() {
     localStorage.setItem('n1_user_id', GUEST_USER_ID);
     localStorage.setItem('n1_guest_mode', 'true');
+    localStorage.setItem('n1_was_guest', 'true');
     hideAuthOverlay();
-    showToast('Running as guest. Data saved locally only.');
+    showToast('Guest mode. Data stays on this device only — sign up to sync.');
+}
+
+async function migrateGuestData() {
+    if (!supabaseClient || !currentUser) return;
+    const uid = currentUser.id;
+    const dates = Object.keys(state.logs).sort();
+    let migrated = 0;
+    for (const dateKey of dates.slice(-30)) {
+        const log = state.logs[dateKey];
+        if (!log) continue;
+        try {
+            await supabaseClient.functions.invoke('save-daily-log', {
+                method: 'POST',
+                headers: { 'x-user-id': uid },
+                body: { logDate: dateKey, data: log, userId: uid }
+            });
+            migrated++;
+        } catch (e) { console.warn('Guest migration failed for', dateKey, e); }
+    }
+    localStorage.removeItem('n1_was_guest');
+    if (migrated > 0) showToast(`Migrated ${migrated} days to your account.`);
 }
 
 function bindAuthHandlers() {
@@ -266,6 +339,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     refreshAllViews();
     updateSettingsView();
     if (getWeatherKey()) fetchWeather().then(() => refreshAllViews());
+    window.addEventListener('online', () => {
+        updateSyncStatus('syncing');
+        replayPendingWrites();
+    });
+    window.addEventListener('offline', () => updateSyncStatus('offline'));
 });
 
 async function loadData() {
@@ -277,7 +355,6 @@ async function loadData() {
             state.profile = { ...DEFAULT_USER_PROFILE, ...(state.profile || {}) };
             state.currentPhase = state.currentPhase || state.profile.currentPhase || 'phase_1';
             getActivityStore();
-            
             for (let key in state.logs) {
                 state.logs[key] = normalizeLog(state.logs[key]);
             }
@@ -291,19 +368,19 @@ async function loadData() {
         state.logs[today] = normalizeLog(state.logs[today]);
     }
 
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
+        updateSyncStatus('syncing');
         try {
-            let loadedFromDashboard = false;
+            let loadedFromCloud = false;
             try {
                 const { data: dashData, error: dashErr } = await supabaseClient.functions.invoke('load-dashboard', {
                     method: 'GET',
                     headers: { 'x-user-id': getUserId() }
                 });
                 if (!dashErr && dashData && dashData.success && dashData.logs) {
-                    loadedFromDashboard = true;
+                    loadedFromCloud = true;
                     for (const [date, fields] of Object.entries(dashData.logs)) {
-                        if (!state.logs[date]) state.logs[date] = getEmptyLog();
-                        state.logs[date] = normalizeLog({ ...state.logs[date], ...fields });
+                        state.logs[date] = normalizeLog({ ...(state.logs[date] || getEmptyLog()), ...fields });
                     }
                     if (dashData.meta && dashData.meta.latestBodyScan) {
                         const scan = dashData.meta.latestBodyScan;
@@ -317,12 +394,13 @@ async function loadData() {
                         }
                     }
                     localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+                    updateSyncStatus('synced');
                 }
-            } catch (dashE) { console.warn('load-dashboard fallback to n1_logs:', dashE); }
+            } catch (dashE) { console.warn('load-dashboard failed, trying n1_logs:', dashE); }
 
-            if (!loadedFromDashboard) {
+            if (!loadedFromCloud) {
                 const uid = getUserId();
-                const prefix = uid === GUEST_USER_ID ? '' : `${uid.slice(0, 8)}_`;
+                const prefix = `${uid.slice(0, 8)}_`;
                 let query = supabaseClient.from('n1_logs').select('*').order('date_id', { ascending: false }).limit(120);
                 if (prefix) query = query.like('date_id', `${prefix}%`);
                 const { data: cloudLogs, error } = await query;
@@ -390,16 +468,21 @@ async function loadData() {
                         state.logs[date] = normalizeLog(state.logs[date]);
                     });
                     localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+                    updateSyncStatus('synced');
                 }
             }
-        } catch (e) { console.error("Supabase sync failed on load", e); }
+        } catch (e) {
+            console.error("Supabase sync failed on load — using cached data", e);
+            updateSyncStatus('offline');
+        }
     }
 
     await loadCloudSettings();
+    replayPendingWrites();
 }
 
 async function loadCloudSettings() {
-    if (!supabaseClient) return;
+    if (!supabaseClient || isGuest()) return;
     const uid = getUserId();
 
     try {
@@ -499,7 +582,8 @@ async function saveData(dateKey = getTodayKey()) {
         stravaSync: state.stravaSync
     };
     
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
+        updateSyncStatus('syncing');
         try {
             try {
                 await supabaseClient.functions.invoke('save-daily-log', {
@@ -507,16 +591,22 @@ async function saveData(dateKey = getTodayKey()) {
                     headers: { 'x-user-id': getUserId() },
                     body: { logDate: dateKey, data: log, userId: getUserId() }
                 });
+                updateSyncStatus('synced');
             } catch (efErr) {
                 console.warn('save-daily-log fallback to n1_logs:', efErr);
                 const uid = getUserId();
-                const compatDateId = uid === GUEST_USER_ID ? dateKey : `${uid.slice(0, 8)}_${dateKey}`;
+                const compatDateId = `${uid.slice(0, 8)}_${dateKey}`;
                 await supabaseClient.from('n1_logs').upsert({
                     date_id: compatDateId,
                     data: { ...payload, _user_id: uid }
                 }, { onConflict: 'date_id' });
+                updateSyncStatus('synced');
             }
-        } catch(e) { console.error("Supabase push failed on save", e); }
+        } catch(e) {
+            console.error("Cloud save failed — queued for retry", e);
+            queuePendingWrite(dateKey);
+            updateSyncStatus('offline');
+        }
     }
 }
 
@@ -546,7 +636,8 @@ function getEmptyLog() {
         supplements: [],
         customMetrics: {},
         wellness: null,
-        hormone: null
+        hormone: null,
+        gearId: ''
     };
 }
 
@@ -2087,7 +2178,7 @@ function getSuppCatalog() {
 
 function saveSuppCatalog(catalog) {
     localStorage.setItem('n1_supp_catalog', JSON.stringify(catalog));
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
         const uid = getUserId();
         Promise.all(catalog.map(s =>
             supabaseClient.from('supplement_catalog').upsert({
@@ -2165,7 +2256,7 @@ function getGearStore() {
 
 function saveGearStore(gear) {
     localStorage.setItem('n1_gear', JSON.stringify(gear));
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
         supabaseClient.from('gear_items').upsert(
             gear.map(g => ({
                 user_id: getUserId(),
@@ -2230,7 +2321,7 @@ function getRaceStore() {
 
 function saveRaceStore(races) {
     localStorage.setItem('n1_races', JSON.stringify(races));
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
         supabaseClient.from('race_events').upsert(
             races.map(r => ({
                 user_id: getUserId(),
@@ -2291,7 +2382,7 @@ function getCustomMetrics() {
 
 function saveCustomMetrics(metrics) {
     localStorage.setItem('n1_custom_metrics', JSON.stringify(metrics));
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
         const uid = getUserId();
         Promise.all(metrics.map(m =>
             supabaseClient.from('custom_metric_definitions').upsert({
@@ -2465,7 +2556,7 @@ function uploadPhoto() {
     const ext = file.name.split('.').pop() || 'jpg';
     const dateStr = getTodayKey();
 
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
         const uid = getUserId();
         const path = `${uid}/${dateStr}_${photoId}.${ext}`;
         supabaseClient.storage.from('progress-photos').upload(path, file, { cacheControl: '3600', upsert: true }).then(({ data, error }) => {
@@ -2503,7 +2594,7 @@ function getTrainingPlanStore() {
 
 function saveTrainingPlanStore(plans) {
     localStorage.setItem('n1_training_plans', JSON.stringify(plans));
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
         const uid = getUserId();
         Promise.all(plans.filter(p => p.active).map(p =>
             supabaseClient.from('training_plans').upsert({
@@ -2761,7 +2852,7 @@ function updateSettingsView() {
 }
 
 async function invokePassiveSync() {
-    if (!supabaseClient) throw new Error('Supabase not connected');
+    if (!supabaseClient || isGuest()) throw new Error('Not available in guest mode');
     const { data, error } = await supabaseClient.functions.invoke('sync-passive', {
         method: 'POST',
     });
@@ -2917,6 +3008,30 @@ function exportCockpitCSV() {
             JSON.stringify(l.customMetrics||{})
         ]);
     });
+
+    rows.push([]);
+    rows.push(['--- GEAR ITEMS ---']);
+    rows.push(['name','type','currentKm','lifeKm','pctWorn','retired']);
+    getGearStore().forEach(g => {
+        const pct = g.lifeKm > 0 ? Math.round((g.currentKm / g.lifeKm) * 100) : 0;
+        rows.push([g.name, g.type, Math.round(g.currentKm||0), g.lifeKm, pct+'%', g.retired?'yes':'no']);
+    });
+
+    rows.push([]);
+    rows.push(['--- RACE EVENTS ---']);
+    rows.push(['name','date','type','distanceKm','priority','status','daysUntil']);
+    getRaceStore().forEach(r => {
+        const days = r.date ? Math.round((new Date(r.date) - new Date()) / 86400000) : '';
+        rows.push([r.name, r.date, r.type, r.distance, r.priority, r.status||'planned', days]);
+    });
+
+    rows.push([]);
+    rows.push(['--- PROGRESS PHOTOS ---']);
+    rows.push(['id','date','type','hasCloudUrl']);
+    getPhotoStore().forEach(p => {
+        rows.push([p.id, p.date, p.type, p.url ? 'yes' : 'no']);
+    });
+
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -2962,7 +3077,7 @@ function buildActivitiesFromDailyLogs() {
 async function syncStravaInboxFromCloud() {
     let imported = 0;
 
-    if (supabaseClient) {
+    if (supabaseClient && !isGuest()) {
         try {
             const { data: cloudLogs, error } = await supabaseClient
                 .from('n1_logs')
@@ -3386,6 +3501,32 @@ function updateHubDashboard() {
             if(alertStallIcon) alertStallIcon.textContent = "🟢";
         }
     }
+    const alertGear = document.getElementById('alert-gear-msg');
+    const alertGearNode = document.getElementById('alert-gear');
+    const alertGearIcon = alertGearNode ? alertGearNode.querySelector('.icon') : null;
+    if (alertGear) {
+        const gear = getGearStore().filter(g => !g.retired);
+        if (gear.length === 0) {
+            alertGear.textContent = 'No gear tracked. Add shoes in Settings to monitor wear.';
+            alertGear.style.color = 'var(--text-secondary)';
+            if (alertGearIcon) alertGearIcon.textContent = '⚪';
+        } else {
+            const warnings = gear.filter(g => g.lifeKm > 0 && (g.currentKm / g.lifeKm) >= 0.8);
+            if (warnings.length > 0) {
+                const worst = warnings.sort((a, b) => (b.currentKm / b.lifeKm) - (a.currentKm / a.lifeKm))[0];
+                const pct = Math.round((worst.currentKm / worst.lifeKm) * 100);
+                alertGear.textContent = `${worst.name}: ${pct}% worn (${Math.round(worst.currentKm)}/${worst.lifeKm} km). Replace soon.`;
+                alertGear.style.color = pct >= 95 ? '#ff0000' : 'var(--accent)';
+                if (alertGearIcon) alertGearIcon.textContent = pct >= 95 ? '🔴' : '🟡';
+            } else {
+                const healthiest = gear.map(g => `${g.name}: ${Math.round(g.currentKm || 0)}/${g.lifeKm} km`).join(' · ');
+                alertGear.textContent = healthiest;
+                alertGear.style.color = 'var(--text-secondary)';
+                if (alertGearIcon) alertGearIcon.textContent = '🟢';
+            }
+        }
+    }
+
     updateMilestones();
 }
 
@@ -3619,6 +3760,15 @@ function updateLogForm() {
     safeSetVal('log-water', today.waterLiters);
     safeSetVal('log-sodium', today.sodiumMg);
     renderSupplementChecklist();
+
+    const gearSelect = document.getElementById('log-gear-select');
+    if (gearSelect) {
+        const gear = getGearStore().filter(g => !g.retired);
+        gearSelect.innerHTML = '<option value="">None</option>' + gear.map(g =>
+            `<option value="${g.id || g.name}">${g.name} (${g.type})</option>`
+        ).join('');
+        if (today.gearId) gearSelect.value = today.gearId;
+    }
 }
 
 function bindLogForm() {
@@ -3717,6 +3867,7 @@ function bindLogForm() {
             log.sugarG = safeGetVal('log-sugar');
             log.waterLiters = safeGetVal('log-water');
             log.sodiumMg = safeGetVal('log-sodium');
+            log.gearId = safeGetVal('log-gear-select');
             
             const existing = state.logs[todayStr] || {};
             log.supplements = existing.supplements || [];
@@ -3725,6 +3876,17 @@ function bindLogForm() {
             log.customMetrics = existing.customMetrics || {};
             
             state.logs[todayStr] = log;
+
+            if (log.gearId && log.manualCardioDuration) {
+                const gear = getGearStore();
+                const item = gear.find(g => (g.id || g.name) === log.gearId);
+                if (item) {
+                    const distKm = parseFloat(log.distanceKm) || (parseFloat(log.manualCardioDuration) * 0.1);
+                    item.currentKm = (parseFloat(item.currentKm) || 0) + distKm;
+                    saveGearStore(gear);
+                }
+            }
+
             saveData();
             showToast("Log Saved successfully!");
         });

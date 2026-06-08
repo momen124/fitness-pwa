@@ -74,6 +74,7 @@
                 <p id="header-date" class="header-date"></p>
             </div>
             <div class="header-actions">
+                <span id="sync-status" title="Sync status" style="font-size:0.6rem;cursor:default;">🟢</span>
                 <button id="streak-badge" class="badge accent">🔥 <span id="streak-count">0</span> Days</button>
             </div>
         </header>
@@ -268,8 +269,15 @@
                                 <div id="alert-wbgt-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">Conditions safe for intense effort.</div>
                             </div>
                         </div>
+                        <!-- Alert: Gear Wear -->
+                        <div class="check-item" id="alert-gear">
+                            <span class="icon">🟢</span>
+                            <div style="flex: 1; text-align: left; margin-left: 10px;">
+                                <div style="font-weight: 700;">Gear Wear Status</div>
+                                <div id="alert-gear-msg" style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">No gear tracked.</div>
+                            </div>
+                        </div>
                     </div>
-
                     <div class="weekly-review-panel mt-4">
                         <div class="os-header">
                             <div>
@@ -801,6 +809,10 @@
                             <div class="input-group flex-1">
                                 <label>Strava RPE</label>
                                 <input type="number" id="log-cardio-rpe">
+                            </div>
+                            <div class="input-group flex-1">
+                                <label>Gear Used</label>
+                                <select id="log-gear-select"><option value="">None</option></select>
                             </div>
                         </div>
                         <div class="flex-row mt-2">
