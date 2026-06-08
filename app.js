@@ -1889,6 +1889,132 @@ function restoreSupplementForm() {
     renderSupplementChecklist();
 }
 
+function getGearStore() {
+    const saved = localStorage.getItem('n1_gear');
+    return saved ? JSON.parse(saved) : [];
+}
+
+function saveGearStore(gear) {
+    localStorage.setItem('n1_gear', JSON.stringify(gear));
+    if (supabaseClient) {
+        supabaseClient.from('gear_items').upsert(
+            gear.map(g => ({
+                user_id: '00000000-0000-0000-0000-000000000001',
+                name: g.name, type: g.type,
+                initial_life_km: g.lifeKm, current_km: g.currentKm,
+                retired: g.retired || false
+            }))
+        ).catch(e => console.warn('Gear cloud sync failed', e));
+    }
+}
+
+function renderGearList() {
+    const container = document.getElementById('gear-list');
+    if (!container) return;
+    const gear = getGearStore();
+    if (gear.length === 0) {
+        container.innerHTML = '<div class="text-sm text-secondary">No gear tracked yet. Add your running shoes to start.</div>';
+        return;
+    }
+    container.innerHTML = gear.filter(g => !g.retired).map(g => {
+        const pct = g.lifeKm > 0 ? Math.min(100, (g.currentKm / g.lifeKm) * 100) : 0;
+        const cls = pct > 90 ? 'danger' : pct > 75 ? 'warn' : 'ok';
+        const typeIcon = { shoe: '👟', bike: '🚴', wetsuit: '🥽', clothing: '👕', accessory: '🎒' }[g.type] || '📦';
+        return `<div class="gear-item">
+            <div class="gear-info">
+                <span class="gear-name">${typeIcon} ${g.name}</span>
+                <span class="gear-meta">${g.currentKm.toFixed(1)} / ${g.lifeKm} km &middot; ${pct.toFixed(0)}% used</span>
+                <div class="gear-bar"><div class="gear-bar-fill ${cls}" style="width:${pct}%"></div></div>
+            </div>
+            <button class="btn-sm" onclick="retireGear('${g.id}')" title="Retire gear">Retire</button>
+        </div>`;
+    }).join('');
+}
+
+function addGearFromUI() {
+    const name = document.getElementById('gear-name').value.trim();
+    const type = document.getElementById('gear-type').value;
+    const lifeKm = parseFloat(document.getElementById('gear-life-km').value) || 0;
+    if (!name) return;
+    const gear = getGearStore();
+    gear.push({ id: Date.now().toString(36), name, type, lifeKm, currentKm: 0, retired: false });
+    saveGearStore(gear);
+    document.getElementById('gear-name').value = '';
+    document.getElementById('gear-life-km').value = '';
+    renderGearList();
+    showToast('Gear added.');
+}
+
+function retireGear(id) {
+    const gear = getGearStore();
+    const item = gear.find(g => g.id === id);
+    if (item) item.retired = true;
+    saveGearStore(gear);
+    renderGearList();
+    showToast('Gear retired.');
+}
+
+function getRaceStore() {
+    const saved = localStorage.getItem('n1_races');
+    return saved ? JSON.parse(saved) : [];
+}
+
+function saveRaceStore(races) {
+    localStorage.setItem('n1_races', JSON.stringify(races));
+    if (supabaseClient) {
+        supabaseClient.from('race_events').upsert(
+            races.map(r => ({
+                user_id: '00000000-0000-0000-0000-000000000001',
+                name: r.name, event_date: r.date, event_type: r.type,
+                distance_km: r.distance, priority: r.priority, status: r.status || 'planned'
+            }))
+        ).catch(e => console.warn('Race cloud sync failed', e));
+    }
+}
+
+function renderRaceList() {
+    const container = document.getElementById('race-list');
+    if (!container) return;
+    const races = getRaceStore().filter(r => r.status !== 'completed').sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (races.length === 0) {
+        container.innerHTML = '<div class="text-sm text-secondary">No upcoming races. Add your target event.</div>';
+        return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    container.innerHTML = races.map(r => {
+        const raceDate = new Date(r.date);
+        const days = Math.ceil((raceDate - today) / 86400000);
+        const countdownText = days > 0 ? `${days}d` : days === 0 ? 'TODAY' : 'Past';
+        const countdownColor = days <= 7 ? 'color:#ff6b6b' : days <= 30 ? 'color:#ffc107' : 'color:#36d7b7';
+        const typeIcon = { run: '🏃', triathlon: '🏊‍♂️', cycling: '🚴', swim: '🏊', obstacle: '🧱' }[r.type] || '🏁';
+        return `<div class="race-item">
+            <div class="race-info">
+                <span class="race-name">${typeIcon} ${r.name}</span>
+                <span class="race-meta">${r.date} &middot; ${r.distance}km &middot; <span class="race-priority ${r.priority}">${r.priority}</span></span>
+            </div>
+            <span class="race-countdown" style="${countdownColor}">${countdownText}</span>
+        </div>`;
+    }).join('');
+}
+
+function addRaceFromUI() {
+    const name = document.getElementById('race-name').value.trim();
+    const date = document.getElementById('race-date').value;
+    const distance = parseFloat(document.getElementById('race-distance').value) || 0;
+    const type = document.getElementById('race-type').value;
+    const priority = document.getElementById('race-priority').value;
+    if (!name || !date) return;
+    const races = getRaceStore();
+    races.push({ id: Date.now().toString(36), name, date, distance, type, priority, status: 'planned' });
+    saveRaceStore(races);
+    document.getElementById('race-name').value = '';
+    document.getElementById('race-date').value = '';
+    document.getElementById('race-distance').value = '';
+    renderRaceList();
+    showToast('Race added.');
+}
+
 function exportFullBackup() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3005,6 +3131,14 @@ function bindLogForm() {
     if (btnSuppAdd) btnSuppAdd.addEventListener('click', addSupplementFromUI);
     const suppInput = document.getElementById('supp-quick-add');
     if (suppInput) suppInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addSupplementFromUI(); });
+
+    const btnAddGear = document.getElementById('btn-add-gear');
+    if (btnAddGear) btnAddGear.addEventListener('click', addGearFromUI);
+    const btnAddRace = document.getElementById('btn-add-race');
+    if (btnAddRace) btnAddRace.addEventListener('click', addRaceFromUI);
+
+    renderGearList();
+    renderRaceList();
 }
 
 

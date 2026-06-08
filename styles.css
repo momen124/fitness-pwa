@@ -1052,3 +1052,26 @@ body.mode-cairo .alexandria-only { display: none !important; }
   transition: background 0.15s;
 }
 .btn-sm:hover { background: rgba(100,150,255,0.15); }
+
+.gear-list, .race-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.gear-item, .race-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.6rem 0.8rem; border-radius: 8px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+}
+.gear-item .gear-info { display: flex; flex-direction: column; gap: 0.15rem; }
+.gear-item .gear-name { font-weight: 500; font-size: 0.85rem; }
+.gear-item .gear-meta { font-size: 0.7rem; color: var(--text-secondary); }
+.gear-bar { width: 60px; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 4px; }
+.gear-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+.gear-bar-fill.ok { background: #36d7b7; }
+.gear-bar-fill.warn { background: #ffc107; }
+.gear-bar-fill.danger { background: #ff6b6b; }
+.race-item .race-info { display: flex; flex-direction: column; gap: 0.15rem; }
+.race-item .race-name { font-weight: 500; font-size: 0.85rem; }
+.race-item .race-meta { font-size: 0.7rem; color: var(--text-secondary); }
+.race-countdown { font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.race-priority { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; }
+.race-priority.A { background: rgba(255,75,75,0.2); color: #ff6b6b; }
+.race-priority.B { background: rgba(255,193,7,0.2); color: #ffc107; }
+.race-priority.C { background: rgba(100,150,255,0.2); color: #6496ff; }
