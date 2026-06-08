@@ -121,17 +121,8 @@ async function loadData() {
             state.currentPhase = state.currentPhase || state.profile.currentPhase || 'phase_1';
             getActivityStore();
             
-            // Patch older logs that might be missing V2 fields so charts don't break
             for (let key in state.logs) {
                 state.logs[key] = normalizeLog(state.logs[key]);
-                let log = state.logs[key];
-                if (log.manualCardioDuration > 0 && !log.cardioType) {
-                    log.cardioType = Math.random() > 0.5 ? 'ZONE2' : 'VO2MAX';
-                    log.stravaPace = (Math.random() * 2 + 5).toFixed(2);
-                    log.stravaHr = Math.floor(Math.random() * 30) + 130;
-                }
-                if (!log.hrv) log.hrv = Math.floor(Math.random() * 30) + 40;
-                if (!log.aerobicRpe) log.aerobicRpe = log.manualCardioDuration > 0 ? Math.floor(Math.random() * 3) + 6 : 0;
             }
         } catch(e) { console.error(e); }
     }
@@ -143,77 +134,100 @@ async function loadData() {
         state.logs[today] = normalizeLog(state.logs[today]);
     }
 
-    // 2. Load from Supabase and merge (only if SDK loaded)
     if (supabaseClient) {
         try {
-            const { data: cloudLogs, error } = await supabaseClient.from('n1_logs').select('*').order('date_id', { ascending: false }).limit(120);
-            if (!error && cloudLogs) {
-                cloudLogs.forEach(row => {
-                    const date = row.date_id;
-                    if (!state.logs[date]) state.logs[date] = getEmptyLog();
-                    if (row.data) {
-                        const { importedActivities, stravaSync, ...cloudDailyFields } = row.data;
-                        state.logs[date] = normalizeLog({ ...state.logs[date], ...cloudDailyFields });
-                        if (stravaSync) state.stravaSync = { ...(state.stravaSync || {}), ...stravaSync };
-
-                        // Map passive engine fields
-                        if (row.data.weatherTempC != null) state.logs[date].tempC = row.data.weatherTempC;
-                        if (row.data.weatherHumidity != null) state.logs[date].humidity = row.data.weatherHumidity;
-                        if (row.data.weatherWindSpeed != null) state.logs[date].windSpeed = row.data.weatherWindSpeed;
-                        if (row.data.weatherCondition != null) state.logs[date].weatherCondition = row.data.weatherCondition;
-                        if (row.data.heatRisk != null) state.logs[date].heatRisk = row.data.heatRisk;
-                        if (row.data.stravaEffort != null) state.logs[date].stravaEffort = row.data.stravaEffort;
-                        if (row.data.cardioDuration != null && row.data.cardioDuration > 0) state.logs[date].manualCardioDuration = row.data.cardioDuration;
-                        if (row.data.cardioStart != null && row.data.cardioStart !== '00:00') state.logs[date].cardioStart = row.data.cardioStart;
-                        if (row.data.totalCalories != null && row.data.totalCalories > 0) state.logs[date].totalCals = row.data.totalCalories;
-                        if (row.data.proteinG != null && row.data.proteinG > 0) state.logs[date].proG = row.data.proteinG;
-                        if (row.data.carbsG != null && row.data.carbsG > 0) state.logs[date].carbsG = row.data.carbsG;
-                        if (row.data.fatsG != null && row.data.fatsG > 0) state.logs[date].fatsG = row.data.fatsG;
-                        // Map InBody fields
-                        if (row.data.inbodyDate) state.logs[date].inbodyDate = row.data.inbodyDate;
-                        if (row.data.inbodyWeight) state.logs[date].inbodyWeight = row.data.inbodyWeight;
-                        if (row.data.inbodySmm) state.logs[date].inbodySmm = row.data.inbodySmm;
-                        if (row.data.inbodyBf) state.logs[date].inbodyBf = row.data.inbodyBf;
-                        if (row.data.inbodyTbw) state.logs[date].inbodyTbw = row.data.inbodyTbw;
-                        if (row.data.inbodyBmi) state.logs[date].inbodyBmi = row.data.inbodyBmi;
-                        if (row.data.inbodyBmr) state.logs[date].inbodyBmr = row.data.inbodyBmr;
-                        // Map biomarker fields
-                        if (row.data.bioTest) state.logs[date].bioTest = row.data.bioTest;
-                        if (row.data.bioCortisol) state.logs[date].bioCortisol = row.data.bioCortisol;
-                        if (row.data.bioHscrp) state.logs[date].bioHscrp = row.data.bioHscrp;
-                        if (row.data.bioFerritin) state.logs[date].bioFerritin = row.data.bioFerritin;
-                        // Map any subjective data that was saved to cloud
-                        if (row.data.weight) state.logs[date].weight = row.data.weight;
-                        if (row.data.cnsFatigue) state.logs[date].cnsFatigue = row.data.cnsFatigue;
-                        if (row.data.sleepHrs) state.logs[date].sleepHrs = row.data.sleepHrs;
-                        if (row.data.sleepQual) state.logs[date].sleepQual = row.data.sleepQual;
-                        if (row.data.hrv) state.logs[date].hrv = row.data.hrv;
-                        if (row.data.cardioStart) state.logs[date].cardioStart = row.data.cardioStart;
-                        if (row.data.liftReps) state.logs[date].liftReps = row.data.liftReps;
-                        if (row.data.liftRestSeconds) state.logs[date].liftRestSeconds = row.data.liftRestSeconds;
-                        if (Array.isArray(row.data.importedActivities)) {
-                            importExternalActivities(row.data.importedActivities, 'strava', {
-                                syncMode: 'passive',
-                                syncedAt: row.data.syncedAt
-                            });
-                        } else if (row.data.rawActivity || row.data.stravaActivityId) {
-                            importExternalActivities([{
-                                ...(row.data.rawActivity || {}),
-                                externalActivityId: row.data.stravaActivityId,
-                                cardioDuration: row.data.cardioDuration || row.data.manualCardioDuration,
-                                stravaEffort: row.data.stravaEffort,
-                                start_date_local: row.data.cardioStart ? `${date}T${row.data.cardioStart}:00` : date,
-                                type: row.data.cardioType || row.data.type,
-                                source: row.data.source || 'strava'
-                            }], row.data.source || 'strava', {
-                                syncMode: 'passive',
-                                syncedAt: row.data.syncedAt
+            let loadedFromDashboard = false;
+            try {
+                const { data: dashData, error: dashErr } = await supabaseClient.functions.invoke('load-dashboard', {
+                    method: 'GET',
+                });
+                if (!dashErr && dashData && dashData.success && dashData.logs) {
+                    loadedFromDashboard = true;
+                    for (const [date, fields] of Object.entries(dashData.logs)) {
+                        if (!state.logs[date]) state.logs[date] = getEmptyLog();
+                        state.logs[date] = normalizeLog({ ...state.logs[date], ...fields });
+                    }
+                    if (dashData.meta && dashData.meta.latestBodyScan) {
+                        const scan = dashData.meta.latestBodyScan;
+                        if (scan.date && state.logs[scan.date]) {
+                            Object.assign(state.logs[scan.date], {
+                                inbodyDate: scan.date,
+                                inbodyWeight: scan.weight,
+                                inbodyBf: scan.bodyFat,
+                                inbodySmm: scan.smm
                             });
                         }
                     }
-                    state.logs[date] = normalizeLog(state.logs[date]);
-                });
-                localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+                    localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+                }
+            } catch (dashE) { console.warn('load-dashboard fallback to n1_logs:', dashE); }
+
+            if (!loadedFromDashboard) {
+                const { data: cloudLogs, error } = await supabaseClient.from('n1_logs').select('*').order('date_id', { ascending: false }).limit(120);
+                if (!error && cloudLogs) {
+                    cloudLogs.forEach(row => {
+                        const date = row.date_id;
+                        if (!state.logs[date]) state.logs[date] = getEmptyLog();
+                        if (row.data) {
+                            const { importedActivities, stravaSync, ...cloudDailyFields } = row.data;
+                            state.logs[date] = normalizeLog({ ...state.logs[date], ...cloudDailyFields });
+                            if (stravaSync) state.stravaSync = { ...(state.stravaSync || {}), ...stravaSync };
+
+                            if (row.data.weatherTempC != null) state.logs[date].tempC = row.data.weatherTempC;
+                            if (row.data.weatherHumidity != null) state.logs[date].humidity = row.data.weatherHumidity;
+                            if (row.data.weatherWindSpeed != null) state.logs[date].windSpeed = row.data.weatherWindSpeed;
+                            if (row.data.weatherCondition != null) state.logs[date].weatherCondition = row.data.weatherCondition;
+                            if (row.data.heatRisk != null) state.logs[date].heatRisk = row.data.heatRisk;
+                            if (row.data.stravaEffort != null) state.logs[date].stravaEffort = row.data.stravaEffort;
+                            if (row.data.cardioDuration != null && row.data.cardioDuration > 0) state.logs[date].manualCardioDuration = row.data.cardioDuration;
+                            if (row.data.cardioStart != null && row.data.cardioStart !== '00:00') state.logs[date].cardioStart = row.data.cardioStart;
+                            if (row.data.totalCalories != null && row.data.totalCalories > 0) state.logs[date].totalCals = row.data.totalCalories;
+                            if (row.data.proteinG != null && row.data.proteinG > 0) state.logs[date].proG = row.data.proteinG;
+                            if (row.data.carbsG != null && row.data.carbsG > 0) state.logs[date].carbsG = row.data.carbsG;
+                            if (row.data.fatsG != null && row.data.fatsG > 0) state.logs[date].fatsG = row.data.fatsG;
+                            if (row.data.inbodyDate) state.logs[date].inbodyDate = row.data.inbodyDate;
+                            if (row.data.inbodyWeight) state.logs[date].inbodyWeight = row.data.inbodyWeight;
+                            if (row.data.inbodySmm) state.logs[date].inbodySmm = row.data.inbodySmm;
+                            if (row.data.inbodyBf) state.logs[date].inbodyBf = row.data.inbodyBf;
+                            if (row.data.inbodyTbw) state.logs[date].inbodyTbw = row.data.inbodyTbw;
+                            if (row.data.inbodyBmi) state.logs[date].inbodyBmi = row.data.inbodyBmi;
+                            if (row.data.inbodyBmr) state.logs[date].inbodyBmr = row.data.inbodyBmr;
+                            if (row.data.bioTest) state.logs[date].bioTest = row.data.bioTest;
+                            if (row.data.bioCortisol) state.logs[date].bioCortisol = row.data.bioCortisol;
+                            if (row.data.bioHscrp) state.logs[date].bioHscrp = row.data.bioHscrp;
+                            if (row.data.bioFerritin) state.logs[date].bioFerritin = row.data.bioFerritin;
+                            if (row.data.weight) state.logs[date].weight = row.data.weight;
+                            if (row.data.cnsFatigue) state.logs[date].cnsFatigue = row.data.cnsFatigue;
+                            if (row.data.sleepHrs) state.logs[date].sleepHrs = row.data.sleepHrs;
+                            if (row.data.sleepQual) state.logs[date].sleepQual = row.data.sleepQual;
+                            if (row.data.hrv) state.logs[date].hrv = row.data.hrv;
+                            if (row.data.cardioStart) state.logs[date].cardioStart = row.data.cardioStart;
+                            if (row.data.liftReps) state.logs[date].liftReps = row.data.liftReps;
+                            if (row.data.liftRestSeconds) state.logs[date].liftRestSeconds = row.data.liftRestSeconds;
+                            if (Array.isArray(row.data.importedActivities)) {
+                                importExternalActivities(row.data.importedActivities, 'strava', {
+                                    syncMode: 'passive',
+                                    syncedAt: row.data.syncedAt
+                                });
+                            } else if (row.data.rawActivity || row.data.stravaActivityId) {
+                                importExternalActivities([{
+                                    ...(row.data.rawActivity || {}),
+                                    externalActivityId: row.data.stravaActivityId,
+                                    cardioDuration: row.data.cardioDuration || row.data.manualCardioDuration,
+                                    stravaEffort: row.data.stravaEffort,
+                                    start_date_local: row.data.cardioStart ? `${date}T${row.data.cardioStart}:00` : date,
+                                    type: row.data.cardioType || row.data.type,
+                                    source: row.data.source || 'strava'
+                                }], row.data.source || 'strava', {
+                                    syncMode: 'passive',
+                                    syncedAt: row.data.syncedAt
+                                });
+                            }
+                        }
+                        state.logs[date] = normalizeLog(state.logs[date]);
+                    });
+                    localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+                }
             }
         } catch (e) { console.error("Supabase sync failed on load", e); }
     }
@@ -230,13 +244,20 @@ async function saveData(dateKey = getTodayKey()) {
         stravaSync: state.stravaSync
     };
     
-    // Push today's manual entries to Supabase (only if SDK loaded)
     if (supabaseClient) {
         try {
-            await supabaseClient.from('n1_logs').upsert({
-                date_id: dateKey,
-                data: payload
-            }, { onConflict: 'date_id' });
+            try {
+                await supabaseClient.functions.invoke('save-daily-log', {
+                    method: 'POST',
+                    body: { logDate: dateKey, data: log }
+                });
+            } catch (efErr) {
+                console.warn('save-daily-log fallback to n1_logs:', efErr);
+                await supabaseClient.from('n1_logs').upsert({
+                    date_id: dateKey,
+                    data: payload
+                }, { onConflict: 'date_id' });
+            }
         } catch(e) { console.error("Supabase push failed on save", e); }
     }
 }
