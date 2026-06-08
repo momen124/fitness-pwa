@@ -69,15 +69,18 @@ This document tracks upcoming features, deferred tasks, and architectural upgrad
 
 ### High Priority
 
-- [ ] **Cloud-First Architecture**
-  - Current flow: localStorage → push to cloud. Risk: offline edits conflict with cloud, no merge resolution.
-  - Target: cloud-first read, localStorage as cache. Load from Supabase on startup, write-through on every change.
-  - Requires: conflict resolution strategy (last-write-wins vs merge), optimistic UI updates, error recovery.
+- [x] **Cloud-First Architecture**
+  - Cloud-first read: loadData() tries cloud before localStorage cache.
+  - Cloud-first write: saveData() pushes to cloud, queues on failure.
+  - Sync status indicator: 🟢 synced / 🟡 syncing / 🔴 offline.
+  - Pending write queue: localStorage `n1_pending_writes`, replayed on reconnect via `window.online` event.
+  - Offline fallback: localStorage cache used when cloud unavailable.
 
-- [ ] **Guest Mode UUID Collision**
-  - All guest users share `00000000-0000-0000-0000-000000000001`.
-  - Multiple guests on different devices overwrite each other's cloud data.
-  - Fix options: (a) generate unique anonymous ID per device, (b) disable cloud sync for guests entirely, (c) warn guest users.
+- [x] **Guest Mode UUID Collision**
+  - Cloud sync disabled for guest mode — all `supabaseClient` calls guarded with `!isGuest()`.
+  - Guest data stays localStorage-only.
+  - Guest → login migration: `migrateGuestData()` pushes last 30 days to cloud on first real login.
+  - Toast updated: "Guest mode. Data stays on this device only — sign up to sync."
 
 - [ ] **End-to-End Auth Flow Manual Test**
   - Signup → login → save data → verify in normalized tables → logout → login → data persists.
@@ -86,7 +89,11 @@ This document tracks upcoming features, deferred tasks, and architectural upgrad
 
 ### Medium Priority
 
-- [ ] **Shoe Mileage Alerting**
+- [x] **Shoe Mileage Alerting**
+  - Gear dropdown added to cardio section of log form (`#log-gear-select`).
+  - Auto-mileage: on save with gear selected, `currentKm` incremented by distance.
+  - Cockpit alert card: shows gear wear status, yellow at ≥80%, red at ≥95%.
+  - Cloud sync: `gear_usage_logs` insert in `save-daily-log` edge function (triggers DB `trigger_update_gear_mileage`).
   - Gear tracker exists but no cumulative alert when shoes hit 400km+.
   - Add alert in Cockpit when gear usage approaches life_km threshold.
   - Link workout sessions to gear usage for auto-mileage tracking.
@@ -107,10 +114,8 @@ This document tracks upcoming features, deferred tasks, and architectural upgrad
   - Currently push-only with pull merge on startup.
   - Add: edit from cloud, detect conflicts, allow plan deletion.
 
-- [ ] **Data Export Enhancement**
-  - Add gear usage history to CSV export.
-  - Add race events timeline export.
-  - Add progress photos metadata to export.
+- [x] **Data Export Enhancement**
+  - CSV export now includes 3 sections: daily logs (55 columns, 90 days), gear items (name/type/km/%), race events (countdown), progress photos (metadata).
 
 ### Low Priority
 
@@ -118,10 +123,10 @@ This document tracks upcoming features, deferred tasks, and architectural upgrad
   - Alternative to VPS deployment.
   - Serve at `https://momen124.github.io/fitness-pwa/`.
 
-- [ ] **Offline-First Refinement**
-  - Queue writes when offline, replay on reconnect.
-  - Show sync status indicator (online/offline/syncing).
-  - IndexedDB instead of localStorage for larger data capacity.
+- [x] **Offline-First Refinement** (partial)
+  - Queue writes when offline, replay on reconnect ✅
+  - Show sync status indicator (online/offline/syncing) ✅
+  - IndexedDB instead of localStorage for larger data capacity — not done yet.
 
 - [ ] **Performance Optimization**
   - Lazy-load Chart.js and Supabase SDK (currently blocking render).
