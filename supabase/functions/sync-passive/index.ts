@@ -111,7 +111,7 @@ serve(async (req: Request) => {
               await supabase
                 .from('strava_connections')
                 .upsert({
-                  user_id: '00000000-0000-0000-0000-000000000001',
+                  user_id: req.headers.get('x-user-id') || '00000000-0000-0000-0000-000000000001',
                   athlete_id: String(sAuth.athlete?.id || 'default'),
                   access_token: sAuth.access_token,
                   refresh_token: sAuth.refresh_token,
@@ -289,6 +289,51 @@ serve(async (req: Request) => {
     );
 
     if (error) throw error;
+
+    const userId = req.headers.get('x-user-id') || '00000000-0000-0000-0000-000000000001';
+
+    if (dailyLog.weatherTempC || dailyLog.weatherHumidity) {
+      await supabase.from('weather_snapshots').upsert({
+        user_id: userId,
+        log_date: dateKey,
+        temp_c: num(dailyLog.weatherTempC),
+        humidity: num(dailyLog.weatherHumidity),
+        wind_speed_mps: num(dailyLog.weatherWindSpeed),
+        condition: String(dailyLog.weatherCondition || ''),
+        heat_risk: String(dailyLog.heatRisk || 'unknown'),
+      }, { onConflict: 'user_id,log_date' }).catch(e => console.warn('weather upsert', e));
+    }
+
+    const cardioDur = num(dailyLog.cardioDuration) || num(dailyLog.manualCardioDuration);
+    if (cardioDur > 0 || num(dailyLog.stravaEffort) > 0) {
+      await supabase.from('workout_sessions').upsert({
+        user_id: userId,
+        log_date: dateKey,
+        source: String(dailyLog.source || 'strava'),
+        external_id: `sync_${dateKey}`,
+        session_type: 'cardio',
+        started_at: String(dailyLog.cardioStart || '00:00'),
+        duration_min: cardioDur,
+        distance_km: num(dailyLog.distanceKm),
+        avg_hr: num(dailyLog.avgHR),
+        max_hr: num(dailyLog.maxHR),
+        avg_pace_min_km: num(dailyLog.avgPace),
+        avg_power_watts: num(dailyLog.avgPower),
+        calories: num(dailyLog.caloriesBurned),
+        strava_effort: num(dailyLog.stravaEffort),
+      }, { onConflict: 'user_id,source,external_id' }).catch(e => console.warn('workout_session upsert', e));
+    }
+
+    if (num(dailyLog.totalCalories) > 0) {
+      await supabase.from('nutrition_logs').upsert({
+        user_id: userId,
+        log_date: dateKey,
+        total_calories: num(dailyLog.totalCalories),
+        protein_g: num(dailyLog.proteinG),
+        carbs_g: num(dailyLog.carbsG),
+        fats_g: num(dailyLog.fatsG),
+      }, { onConflict: 'user_id,log_date' }).catch(e => console.warn('nutrition upsert', e));
+    }
 
     return corsResponse({
       success: true,

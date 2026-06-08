@@ -200,6 +200,14 @@ async function handleLogout() {
     currentUser = null;
     localStorage.removeItem('n1_user_id');
     localStorage.removeItem('n1_guest_mode');
+    state.logs = {};
+    state.supplementCatalog = [];
+    state.gearItems = [];
+    state.raceEvents = [];
+    state.trainingPlan = null;
+    state.progressPhotos = [];
+    state.customMetricDefs = [];
+    localStorage.removeItem('n1_state');
     showAuthOverlay();
     showToast('Logged out.');
 }
@@ -313,10 +321,15 @@ async function loadData() {
             } catch (dashE) { console.warn('load-dashboard fallback to n1_logs:', dashE); }
 
             if (!loadedFromDashboard) {
-                const { data: cloudLogs, error } = await supabaseClient.from('n1_logs').select('*').order('date_id', { ascending: false }).limit(120);
+                const uid = getUserId();
+                const prefix = uid === GUEST_USER_ID ? '' : `${uid.slice(0, 8)}_`;
+                let query = supabaseClient.from('n1_logs').select('*').order('date_id', { ascending: false }).limit(120);
+                if (prefix) query = query.like('date_id', `${prefix}%`);
+                const { data: cloudLogs, error } = await query;
                 if (!error && cloudLogs) {
                     cloudLogs.forEach(row => {
-                        const date = row.date_id;
+                        const rawDate = row.date_id;
+                        const date = prefix ? rawDate.split('_').slice(1).join('_') : rawDate;
                         if (!state.logs[date]) state.logs[date] = getEmptyLog();
                         if (row.data) {
                             const { importedActivities, stravaSync, ...cloudDailyFields } = row.data;
@@ -403,9 +416,11 @@ async function saveData(dateKey = getTodayKey()) {
                 });
             } catch (efErr) {
                 console.warn('save-daily-log fallback to n1_logs:', efErr);
+                const uid = getUserId();
+                const compatDateId = uid === GUEST_USER_ID ? dateKey : `${uid.slice(0, 8)}_${dateKey}`;
                 await supabaseClient.from('n1_logs').upsert({
-                    date_id: dateKey,
-                    data: payload
+                    date_id: compatDateId,
+                    data: { ...payload, _user_id: uid }
                 }, { onConflict: 'date_id' });
             }
         } catch(e) { console.error("Supabase push failed on save", e); }
@@ -414,11 +429,11 @@ async function saveData(dateKey = getTodayKey()) {
 
 function getEmptyLog() {
     return {
-        weight: '', cnsFatigue: '', aerobicRpe: '', sleepHrs: '', sleepQual: '',
+        weight: '', cnsFatigue: '', sleepHrs: '', sleepQual: '',
         hrv: '', restingHR: '', injuryLoc: '', injuryPain: '', caffeineMg: '', nsaidsTaken: false, peakEnergyWindow: '',
         tempC: '', humidity: '', windSpeed: '', weatherCondition: '', heatRisk: 'unknown', gymType: 'NONE', gymStart: '', prehabDone: false,
-        liftName: '', liftWeight: '', liftSets: '', liftReps: '', liftRestSeconds: '', liftTempo: '', liftRir: '', muscleTarget: '',
-        muscleSets: '', stravaPace: '', stravaHr: '', shoeId: '', shoeDist: '',
+        liftName: '', liftWeight: '', liftSets: '', liftReps: '', liftRestSeconds: '', liftRir: '', muscleTarget: '',
+        muscleSets: '',
         cardioType: 'NONE', cardioStart: '', manualCardioDuration: '', manualCardioRpe: '',
         distanceKm: '', avgHR: '', maxHR: '', avgPower: '', caloriesBurned: '', elevationGain: '',
         zone1Min: '', zone2Min: '', zone3Min: '', zone4Min: '', zone5Min: '',
@@ -1979,6 +1994,14 @@ function getSuppCatalog() {
 
 function saveSuppCatalog(catalog) {
     localStorage.setItem('n1_supp_catalog', JSON.stringify(catalog));
+    if (supabaseClient) {
+        const uid = getUserId();
+        Promise.all(catalog.map(s =>
+            supabaseClient.from('supplement_catalog').upsert({
+                user_id: uid, name: s.name, dose: s.dose || '', timing: s.timing || 'any', is_active: true
+            }, { onConflict: 'user_id,name' })
+        )).catch(e => console.warn('Supplement catalog cloud sync failed', e));
+    }
 }
 
 function renderSupplementChecklist() {
@@ -2052,7 +2075,7 @@ function saveGearStore(gear) {
     if (supabaseClient) {
         supabaseClient.from('gear_items').upsert(
             gear.map(g => ({
-                user_id: '00000000-0000-0000-0000-000000000001',
+                user_id: getUserId(),
                 name: g.name, type: g.type,
                 initial_life_km: g.lifeKm, current_km: g.currentKm,
                 retired: g.retired || false
@@ -2117,7 +2140,7 @@ function saveRaceStore(races) {
     if (supabaseClient) {
         supabaseClient.from('race_events').upsert(
             races.map(r => ({
-                user_id: '00000000-0000-0000-0000-000000000001',
+                user_id: getUserId(),
                 name: r.name, event_date: r.date, event_type: r.type,
                 distance_km: r.distance, priority: r.priority, status: r.status || 'planned'
             }))
@@ -2175,6 +2198,14 @@ function getCustomMetrics() {
 
 function saveCustomMetrics(metrics) {
     localStorage.setItem('n1_custom_metrics', JSON.stringify(metrics));
+    if (supabaseClient) {
+        const uid = getUserId();
+        Promise.all(metrics.map(m =>
+            supabaseClient.from('custom_metric_definitions').upsert({
+                user_id: uid, name: m.name, metric_type: m.type || 'number', unit: m.unit || ''
+            }, { onConflict: 'user_id,name' })
+        )).catch(e => console.warn('Custom metrics cloud sync failed', e));
+    }
 }
 
 function renderCustomMetrics() {
@@ -2297,7 +2328,24 @@ function getPhotoStore() {
 }
 
 function savePhotoStore(photos) {
-    localStorage.setItem('n1_photos', JSON.stringify(photos));
+    const lite = photos.map(p => ({ id: p.id, date: p.date, type: p.type, url: p.url || null }));
+    localStorage.setItem('n1_photos', JSON.stringify(lite));
+}
+
+async function loadPhotosFromCloud() {
+    if (!supabaseClient) return;
+    const uid = getUserId();
+    const { data: list } = await supabaseClient.storage.from('progress-photos').list(uid, { limit: 50, sortBy: { column: 'created_at', order: 'desc' } });
+    if (!list || list.length === 0) return;
+    const local = getPhotoStore();
+    const localIds = new Set(local.map(p => p.id));
+    for (const f of list) {
+        const photoId = f.name.replace(/\.\w+$/, '');
+        if (localIds.has(photoId)) continue;
+        const { data: urlData } = supabaseClient.storage.from('progress-photos').getPublicUrl(`${uid}/${f.name}`);
+        local.push({ id: photoId, date: f.name.split('_')[0] || '', type: 'cloud', url: urlData?.publicUrl || '' });
+    }
+    savePhotoStore(local);
 }
 
 function renderPhotoTimeline() {
@@ -2308,9 +2356,10 @@ function renderPhotoTimeline() {
         container.innerHTML = '<div class="text-sm text-secondary">No progress photos yet.</div>';
         return;
     }
-    container.innerHTML = photos.slice(-20).reverse().map(p =>
-        `<img class="photo-thumb" src="${p.dataUrl}" title="${p.date} - ${p.type}" alt="${p.type}">`
-    ).join('');
+    container.innerHTML = photos.slice(-20).reverse().map(p => {
+        const src = p.url || p.dataUrl || '';
+        return `<img class="photo-thumb" src="${src}" title="${p.date} - ${p.type}" alt="${p.type}">`;
+    }).join('');
 }
 
 function uploadPhoto() {
@@ -2319,21 +2368,39 @@ function uploadPhoto() {
     if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
     const file = fileInput.files[0];
     if (file.size > 5 * 1024 * 1024) { showToast('Photo too large (max 5MB).'); return; }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const photos = getPhotoStore();
-        photos.push({
-            id: Date.now().toString(36),
-            date: getTodayKey(),
-            type: type,
-            dataUrl: e.target.result
+    const photoId = Date.now().toString(36);
+    const ext = file.name.split('.').pop() || 'jpg';
+    const dateStr = getTodayKey();
+
+    if (supabaseClient) {
+        const uid = getUserId();
+        const path = `${uid}/${dateStr}_${photoId}.${ext}`;
+        supabaseClient.storage.from('progress-photos').upload(path, file, { cacheControl: '3600', upsert: true }).then(({ data, error }) => {
+            if (error) { console.warn('Storage upload failed, falling back to local', error); saveLocal(); return; }
+            const { data: urlData } = supabaseClient.storage.from('progress-photos').getPublicUrl(path);
+            const photos = getPhotoStore();
+            photos.push({ id: photoId, date: dateStr, type: type, url: urlData?.publicUrl || '' });
+            savePhotoStore(photos);
+            renderPhotoTimeline();
+            fileInput.value = '';
+            showToast('Photo uploaded to cloud.');
         });
-        savePhotoStore(photos);
-        renderPhotoTimeline();
-        fileInput.value = '';
-        showToast('Photo saved.');
-    };
-    reader.readAsDataURL(file);
+    } else {
+        saveLocal();
+    }
+
+    function saveLocal() {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const photos = getPhotoStore();
+            photos.push({ id: photoId, date: dateStr, type: type, dataUrl: e.target.result });
+            savePhotoStore(photos);
+            renderPhotoTimeline();
+            fileInput.value = '';
+            showToast('Photo saved locally.');
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
 function getTrainingPlanStore() {
@@ -2343,6 +2410,15 @@ function getTrainingPlanStore() {
 
 function saveTrainingPlanStore(plans) {
     localStorage.setItem('n1_training_plans', JSON.stringify(plans));
+    if (supabaseClient) {
+        const uid = getUserId();
+        Promise.all(plans.filter(p => p.active).map(p =>
+            supabaseClient.from('training_plans').upsert({
+                user_id: uid, name: p.name || 'Weekly Plan', phase: p.phase || 'hypertrophy',
+                is_active: true, plan_data: p
+            }, { onConflict: 'user_id,name' })
+        )).catch(e => console.warn('Training plan cloud sync failed', e));
+    }
 }
 
 function renderTrainingPlans() {
@@ -2723,22 +2799,36 @@ function setupSettingsHandlers() {
 }
 
 function exportCockpitCSV() {
-    const dates = Object.keys(state.logs).sort().slice(-30);
-    const rows = [['date','acwr','wbgt','tdee','fatigue','totalCals','stravaEffort']];
+    const dates = Object.keys(state.logs).sort().slice(-90);
+    const rows = [['date','weight','bodyFatPct','cnsFatigue','workStress','sleepHrs','sleepQual','hrv','restingHR','soreness','stress','motivation','caffeineMg','tempC','humidity','gymType','cardioType','cardioDuration','cardioRpe','distanceKm','avgHR','maxHR','caloriesBurned','avgPower','stravaEffort','elevationGain','zone1Min','zone2Min','zone3Min','zone4Min','zone5Min','liftName','liftWeight','liftSets','liftReps','liftRir','totalCals','proG','carbsG','fatsG','fiberG','sugarG','waterLiters','sodiumMg','injuryLoc','injuryPain','supplements','wellness_mood','wellness_digestion','wellness_joints','wellness_confidence','hormone_cycleDay','hormone_phase','hormone_basalTempC','hormone_energy','customMetrics']];
     dates.forEach(d => {
-        const l = state.logs[d];
-        const acwr = l.stravaEffort || '';
-        const wbgt = l.tempC || '';
-        const tdee = l.totalCals || '';
-        const fatigue = l.cnsFatigue || '';
-        const strava = l.stravaEffort || '';
-        rows.push([d,acwr,wbgt,tdee,fatigue,tdee,strava]);
+        const l = state.logs[d] || {};
+        const w = l.wellness || {};
+        const h = l.hormone || {};
+        rows.push([
+            d, l.weight||'', l.bodyFatPct||'', l.cnsFatigue||'', l.workStress||'',
+            l.sleepHrs||'', l.sleepQual||'', l.hrv||'', l.restingHR||'',
+            l.soreness0to10||'', l.stress0to10||'', l.motivation0to10||'',
+            l.caffeineMg||'', l.tempC||'', l.humidity||'',
+            l.gymType||'', l.cardioType||'', l.manualCardioDuration||'', l.manualCardioRpe||'',
+            l.distanceKm||'', l.avgHR||'', l.maxHR||'', l.caloriesBurned||'',
+            l.avgPower||'', l.stravaEffort||'', l.elevationGain||'',
+            l.zone1Min||'', l.zone2Min||'', l.zone3Min||'', l.zone4Min||'', l.zone5Min||'',
+            l.liftName||'', l.liftWeight||'', l.liftSets||'', l.liftReps||'', l.liftRir||'',
+            l.totalCals||'', l.proG||'', l.carbsG||'', l.fatsG||'',
+            l.fiberG||'', l.sugarG||'', l.waterLiters||'', l.sodiumMg||'',
+            l.injuryLoc||'', l.injuryPain||'',
+            (l.supplements||[]).join(';'),
+            w.mood||'', w.digestion||'', w.joints||'', w.confidence||'',
+            h.cycleDay||'', h.phase||'', h.basalTempC||'', h.energyLevel||'',
+            JSON.stringify(l.customMetrics||{})
+        ]);
     });
-    const csv = rows.map(r => r.join(',')).join('\n');
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `cockpit-${getTodayKey()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    a.href = url; a.download = `n1-export-${getTodayKey()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
 function buildActivitiesFromDailyLogs() {
@@ -2759,7 +2849,7 @@ function buildActivitiesFromDailyLogs() {
             start_date_local: log.cardioStart ? `${dateKey}T${log.cardioStart}:00` : `${dateKey}T12:00:00`,
             durationMin: log.manualCardioDuration,
             distanceKm: log.distanceKm,
-            average_heartrate: log.avgHR || log.stravaHr,
+            average_heartrate: log.avgHR,
             max_heartrate: log.maxHR,
             average_watts: log.avgPower,
             calories: log.caloriesBurned,
@@ -3062,7 +3152,7 @@ function updateHubDashboard() {
     
     if (alertNut) {
         let isHeavy = today.gymType === 'DAY_A' || today.gymType === 'DAY_B';
-        let isCardio = parseFloat(today.manualCardioDuration) > 0 || parseFloat(today.stravaPace) > 0;
+        let isCardio = parseFloat(today.manualCardioDuration) > 0;
         let cals = parseFloat(today.totalCals) || 0;
         let pro = parseFloat(today.proG) || 0;
         
@@ -3350,7 +3440,6 @@ function updateLogForm() {
     safeSetVal('log-cns-fatigue', today.cnsFatigue);
     safeSetVal('log-work-stress', today.workStress || 1);
     safeSetVal('log-bodyfat', today.bodyFatPct);
-    safeSetVal('log-aerobic-rpe', today.aerobicRpe);
     safeSetVal('log-sleep-hrs', today.sleepHrs);
     safeSetVal('log-sleep-qual', today.sleepQual);
     safeSetVal('log-hrv', today.hrv);
@@ -3450,7 +3539,6 @@ function bindLogForm() {
             log.cnsFatigue = safeGetVal('log-cns-fatigue');
             log.workStress = parseInt(safeGetVal('log-work-stress', 1));
             log.bodyFatPct = safeGetVal('log-bodyfat');
-            log.aerobicRpe = safeGetVal('log-aerobic-rpe');
             log.sleepHrs = safeGetVal('log-sleep-hrs');
             log.sleepQual = safeGetVal('log-sleep-qual');
             log.hrv = safeGetVal('log-hrv');
@@ -3536,6 +3624,12 @@ function bindLogForm() {
             log.sugarG = safeGetVal('log-sugar');
             log.waterLiters = safeGetVal('log-water');
             log.sodiumMg = safeGetVal('log-sodium');
+            
+            const existing = state.logs[todayStr] || {};
+            log.supplements = existing.supplements || [];
+            log.wellness = existing.wellness || null;
+            log.hormone = existing.hormone || null;
+            log.customMetrics = existing.customMetrics || {};
             
             state.logs[todayStr] = log;
             saveData();
@@ -3884,8 +3978,8 @@ function renderAllCharts() {
     let calsData = [], proData = [], carbsData = [], fatsData = [];
     let paceData = [], hrData = [], weightData = [], stravaEffortData = [];
     
-    let cardioTypes = { 'ZONE2': 0, 'VO2MAX': 0, 'RECOVERY': 0, 'TEMPO': 0 };
-    let gymTypes = { 'HYPERTROPHY': 0, 'STRENGTH': 0, 'POWER': 0 };
+    let cardioTypes = { 'WALK_JOG': 0, 'CYCLING': 0, 'ROWING': 0, 'SWIMMING': 0, 'RUNNING': 0 };
+    let gymTypes = { 'DAY_A': 0, 'DAY_B': 0, 'TENDON': 0, 'NONE': 0 };
     
     last30.forEach(d => {
         let log = state.logs[d];
@@ -3893,14 +3987,14 @@ function renderAllCharts() {
         painData.push(parseFloat(log.injuryPain) || 0);
         cnsData.push(parseFloat(log.cnsFatigue) || 0);
         cardioData.push(parseFloat(log.manualCardioDuration) || 0);
-        rpeData.push(parseFloat(log.aerobicRpe) || 0);
+        rpeData.push(parseFloat(log.manualCardioRpe || log.aerobicRpe) || 0);
         hrvData.push(parseFloat(log.hrv) || 0);
         calsData.push(parseFloat(log.totalCals) || 0);
         proData.push(parseFloat(log.proG) || 0);
         carbsData.push(parseFloat(log.carbsG) || 0);
         fatsData.push(parseFloat(log.fatsG) || 0);
         paceData.push(parseFloat(log.stravaPace) || 0);
-        hrData.push(parseFloat(log.stravaHr) || 0);
+        hrData.push(parseFloat(log.avgHR || log.stravaHr) || 0);
         weightData.push(parseFloat(log.weight) || 0);
         stravaEffortData.push(parseFloat(log.stravaEffort) || 0);
         

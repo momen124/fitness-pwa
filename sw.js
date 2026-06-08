@@ -1,16 +1,20 @@
-const CACHE_NAME = 'fitness-pwa-v25';
+const CACHE_NAME = 'fitness-pwa-v26';
 const ASSETS_TO_CACHE = [
-    './?v=25',
-    './index.html?v=25',
-    './styles.css?v=25',
-    './app.js?v=25',
+    './?v=26',
+    './index.html?v=26',
+    './styles.css?v=26',
+    './app.js?v=26',
     './manifest.json',
     './icon-192.png',
     './icon-512.png',
+    './icon.svg',
     './images/body-front.png',
     './images/body-back.png',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap',
-    'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap'
+    'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap',
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+    'https://cdn.jsdelivr.net/npm/chart.js',
+    'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -40,7 +44,7 @@ self.addEventListener('fetch', (event) => {
 
     const url = new URL(event.request.url);
 
-    if (url.origin !== self.location.origin && !url.hostname.includes('fonts.googleapis.com') && !url.hostname.includes('cdn.jsdelivr.net')) {
+    if (url.origin !== self.location.origin && !url.hostname.includes('fonts.googleapis.com') && !url.hostname.includes('cdn.jsdelivr.net') && !url.hostname.includes('unpkg.com')) {
         return;
     }
 

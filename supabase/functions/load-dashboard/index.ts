@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { CORS_HEADERS } from '../_shared/cors.ts';
+
+const corsHeaders = CORS_HEADERS;
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -13,7 +15,7 @@ serve(async (req: Request) => {
         const sb = createClient(supabaseUrl, supabaseKey);
 
         const url = new URL(req.url);
-        const userId = url.searchParams.get('userId') || DEFAULT_USER_ID;
+        const userId = req.headers.get('x-user-id') || url.searchParams.get('userId') || DEFAULT_USER_ID;
         const days = parseInt(url.searchParams.get('days') || '120');
 
         const endDate = new Date();

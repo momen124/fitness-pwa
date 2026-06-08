@@ -1131,3 +1131,7 @@ input[type="range"]::-webkit-slider-thumb {
 .auth-card .input-group { margin-bottom: 0.8rem; }
 .auth-card .btn { margin-bottom: 0.5rem; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.flex-col { display: flex; flex-direction: column; }
+.library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.optional { opacity: 0.7; }

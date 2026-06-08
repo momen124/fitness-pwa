@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { CORS_HEADERS } from '../_shared/cors.ts';
+
+const corsHeaders = CORS_HEADERS;
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -113,6 +115,7 @@ serve(async (req: Request) => {
                 user_id: userId,
                 log_date: logDate,
                 source: data.source || 'manual',
+                external_id: `cardio_${logDate}`,
                 session_type: 'cardio',
                 modality: modalityMap[data.cardioType] || null,
                 started_at: str(data.cardioStart),
@@ -145,7 +148,7 @@ serve(async (req: Request) => {
                 external_id: `gym_${logDate}`,
                 session_type: 'strength',
                 started_at: str(data.gymStart)
-            }, { onConflict: 'user_id,source,external_id' });
+            }, { onConflict: 'user_id,source,external_id' }).select();
 
             if (!wsErr2 && wsData && wsData.length > 0) {
                 const sessionId = wsData[0].id;
@@ -237,10 +240,11 @@ serve(async (req: Request) => {
             results.mobility = 'ok';
         }
 
-        // Also upsert to n1_logs for backwards compatibility
+        // Also upsert to n1_logs for backwards compatibility (scoped per user)
+        const compatDateId = userId === DEFAULT_USER_ID ? logDate : `${userId.slice(0, 8)}_${logDate}`;
         await sb.from('n1_logs').upsert({
-            date_id: logDate,
-            data: data
+            date_id: compatDateId,
+            data: { ...data, _user_id: userId }
         }, { onConflict: 'date_id' });
         results.n1_logs_compat = 'ok';
 
