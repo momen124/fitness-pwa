@@ -284,7 +284,8 @@ function getEmptyLog() {
         bioTest: '', bioCortisol: '', bioHscrp: '', bioFerritin: '',
         inbodyDate: '', inbodyWeight: '', inbodySmm: '', inbodyBf: '', inbodyTbw: '', inbodyBmr: '', inbodyNotes: '',
         workStress: 1,
-        bodyFatPct: ''
+        bodyFatPct: '',
+        supplements: []
     };
 }
 
@@ -1806,6 +1807,88 @@ function saveBiomarkerModal() {
     showToast('Biomarker values saved.');
 }
 
+const DEFAULT_SUPPLEMENTS = [
+    { name: 'Creatine 5g', timing: 'morning' },
+    { name: 'Whey Protein', timing: 'post_workout' },
+    { name: 'Vitamin D3 4000IU', timing: 'morning' },
+    { name: 'Omega-3', timing: 'morning' },
+    { name: 'Magnesium', timing: 'bedtime' },
+    { name: 'Melatonin 3mg', timing: 'bedtime' },
+    { name: 'Caffeine 200mg', timing: 'pre_workout' },
+    { name: 'Ashwagandha', timing: 'evening' }
+];
+
+function getSuppCatalog() {
+    const saved = localStorage.getItem('n1_supp_catalog');
+    if (saved) return JSON.parse(saved);
+    return [...DEFAULT_SUPPLEMENTS];
+}
+
+function saveSuppCatalog(catalog) {
+    localStorage.setItem('n1_supp_catalog', JSON.stringify(catalog));
+}
+
+function renderSupplementChecklist() {
+    const container = document.getElementById('supplement-checklist');
+    if (!container) return;
+    const today = state.logs[getTodayKey()];
+    const taken = (today && today.supplements) || [];
+    const catalog = getSuppCatalog();
+
+    container.innerHTML = catalog.map(supp => {
+        const isTaken = taken.some(t => t.name === supp.name && t.timing === supp.timing);
+        return `<div class="supp-chip ${isTaken ? 'active' : ''}" data-name="${supp.name}" data-timing="${supp.timing}">
+            <span>${supp.name}</span>
+            <span class="supp-time">${supp.timing.replace('_', ' ')}</span>
+            <span class="supp-remove" data-remove="true" title="Remove">&times;</span>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.supp-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            if (e.target.dataset.remove) {
+                const name = chip.dataset.name;
+                const timing = chip.dataset.timing;
+                const catalog = getSuppCatalog().filter(s => !(s.name === name && s.timing === timing));
+                saveSuppCatalog(catalog);
+                renderSupplementChecklist();
+                return;
+            }
+            chip.classList.toggle('active');
+            collectSupplements();
+        });
+    });
+}
+
+function collectSupplements() {
+    const today = getTodayKey();
+    if (!state.logs[today]) state.logs[today] = getEmptyLog();
+    const chips = document.querySelectorAll('#supplement-checklist .supp-chip.active');
+    state.logs[today].supplements = Array.from(chips).map(c => ({
+        name: c.dataset.name,
+        timing: c.dataset.timing,
+        taken: true
+    }));
+    saveData();
+}
+
+function addSupplementFromUI() {
+    const input = document.getElementById('supp-quick-add');
+    const timing = document.getElementById('supp-quick-timing');
+    if (!input || !input.value.trim()) return;
+    const catalog = getSuppCatalog();
+    catalog.push({ name: input.value.trim(), timing: timing.value });
+    saveSuppCatalog(catalog);
+    input.value = '';
+    renderSupplementChecklist();
+    showToast('Supplement added.');
+}
+
+function restoreSupplementForm() {
+    const today = state.logs[getTodayKey()];
+    renderSupplementChecklist();
+}
+
 function exportFullBackup() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -2811,6 +2894,7 @@ function updateLogForm() {
     safeSetVal('log-sugar', today.sugarG);
     safeSetVal('log-water', today.waterLiters);
     safeSetVal('log-sodium', today.sodiumMg);
+    renderSupplementChecklist();
 }
 
 function bindLogForm() {
@@ -2916,6 +3000,11 @@ function bindLogForm() {
             showToast("Log Saved successfully!");
         });
     }
+
+    const btnSuppAdd = document.getElementById('btn-supp-add');
+    if (btnSuppAdd) btnSuppAdd.addEventListener('click', addSupplementFromUI);
+    const suppInput = document.getElementById('supp-quick-add');
+    if (suppInput) suppInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addSupplementFromUI(); });
 }
 
 
