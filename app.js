@@ -3289,11 +3289,18 @@ function renderAllCharts() {
         },
         () => {
             // 6. Modality Pie
-            let totalZ2 = 0, totalV02 = 0;
-            last30.forEach(d => { if(state.logs[d].cardioType === 'ZONE2') totalZ2++; else if(state.logs[d].cardioType === 'VO2MAX') totalV02++; });
+            let modCounts = {};
+            const modLabels = { WALK_JOG: 'Walk/Jog', CYCLING: 'Cycling', ROWING: 'Rowing', SWIMMING: 'Swimming', RUNNING: 'Running' };
+            const modColors = { WALK_JOG: '#6496ff', CYCLING: '#ffc107', ROWING: '#ff7864', SWIMMING: '#36d7b7', RUNNING: '#e056fd' };
+            last30.forEach(d => {
+                let t = state.logs[d].cardioType;
+                if (t && t !== 'NONE' && modLabels[t]) modCounts[t] = (modCounts[t] || 0) + 1;
+            });
+            let modKeys = Object.keys(modCounts);
+            if (modKeys.length === 0) modKeys = ['No Data'];
             renderChart('modalityChart', 'doughnut', {
-                labels: ['Zone 2', 'VO2 Max'],
-                datasets: [{ data: [totalZ2, totalV02], backgroundColor: ['#6496ff', '#ff7864'], borderWidth: 0 }]
+                labels: modKeys.map(k => modLabels[k] || k),
+                datasets: [{ data: modKeys.map(k => modCounts[k] || 1), backgroundColor: modKeys.map(k => modColors[k] || '#444'), borderWidth: 0 }]
             });
         },
         () => {
