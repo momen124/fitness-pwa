@@ -53,6 +53,119 @@ let state = {
     logs: {}
 };
 
+// --- INDEXEDDB LAYER ---
+const DB_NAME = 'n1lab_db';
+const DB_VERSION = 1;
+const STORE_NAME = 'keyval';
+let _db = null;
+
+function openDB() {
+    if (_db) return Promise.resolve(_db);
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+        req.onsuccess = () => { _db = req.result; resolve(_db); };
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbGet(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).get(key);
+        req.onsuccess = () => resolve(req.result ?? null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbSet(key, value) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(value, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function dbRemove(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function migrateLocalStorageToIDB() {
+    const migrationKeys = [
+        'n1_pwa_state', 'n1_training_plans', 'n1_supp_catalog',
+        'n1_gear', 'n1_races', 'n1_custom_metrics', 'n1_photos'
+    ];
+    let migrated = false;
+    for (const key of migrationKeys) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+            try {
+                await dbSet(key, JSON.parse(raw));
+                localStorage.removeItem(key);
+                migrated = true;
+            } catch (e) { console.warn('IDB migration failed for', key, e); }
+        }
+    }
+    if (migrated) console.log('Migrated localStorage data to IndexedDB.');
+}
+
+const IDB_KEYS = new Set([
+    'n1_pwa_state', 'n1_training_plans', 'n1_supp_catalog',
+    'n1_gear', 'n1_races', 'n1_custom_metrics', 'n1_photos'
+]);
+
+const _memCache = {};
+
+async function storeGet(key) {
+    if (_memCache[key] !== undefined) return _memCache[key];
+    if (IDB_KEYS.has(key)) {
+        const val = await dbGet(key);
+        _memCache[key] = val;
+        return val;
+    }
+    const raw = localStorage.getItem(key);
+    const val = raw ? JSON.parse(raw) : null;
+    _memCache[key] = val;
+    return val;
+}
+
+async function storeSet(key, value) {
+    _memCache[key] = value;
+    if (IDB_KEYS.has(key)) {
+        await dbSet(key, value);
+        return;
+    }
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+async function storeRemove(key) {
+    delete _memCache[key];
+    if (IDB_KEYS.has(key)) {
+        await dbRemove(key);
+        return;
+    }
+    localStorage.removeItem(key);
+}
+
+function storeGetCached(key) {
+    if (_memCache[key] !== undefined) return _memCache[key];
+    return null;
+}
+
 // --- SAFE DOM HELPERS ---
 function safeGetVal(id, def = '') {
     const el = document.getElementById(id);
@@ -258,6 +371,8 @@ async function handleLogout() {
     state.trainingPlan = null;
     state.progressPhotos = [];
     state.customMetricDefs = [];
+    await storeRemove('n1_pwa_state');
+    Object.keys(_memCache).forEach(k => delete _memCache[k]);
     localStorage.removeItem('n1_state');
     showAuthOverlay();
     showToast('Logged out.');
@@ -325,6 +440,7 @@ function bindAuthHandlers() {
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', async () => {
+    await migrateLocalStorageToIDB();
     initNavigation();
     initSupabase();
     bindAuthHandlers();
@@ -347,10 +463,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadData() {
-    const saved = localStorage.getItem('n1_pwa_state');
+    const saved = await storeGet('n1_pwa_state');
     if(saved) {
         try { 
-            const data = JSON.parse(saved); 
+            const data = saved; 
             state = { ...state, ...data };
             state.profile = { ...DEFAULT_USER_PROFILE, ...(state.profile || {}) };
             state.currentPhase = state.currentPhase || state.profile.currentPhase || 'phase_1';
@@ -393,7 +509,7 @@ async function loadData() {
                             });
                         }
                     }
-                    localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+                    await storeSet('n1_pwa_state', state);
                     updateSyncStatus('synced');
                 }
             } catch (dashE) { console.warn('load-dashboard failed, trying n1_logs:', dashE); }
@@ -467,7 +583,7 @@ async function loadData() {
                         }
                         state.logs[date] = normalizeLog(state.logs[date]);
                     });
-                    localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+                    await storeSet('n1_pwa_state', state);
                     updateSyncStatus('synced');
                 }
             }
@@ -570,7 +686,7 @@ async function loadCloudSettings() {
                 }
             }
             if (changed) {
-                localStorage.setItem('n1_training_plans', JSON.stringify(local));
+                await storeSet('n1_training_plans', local);
                 renderTrainingPlans();
             }
         }
@@ -599,7 +715,7 @@ async function loadCloudSettings() {
 }
 
 async function saveData(dateKey = getTodayKey()) {
-    localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+    await storeSet('n1_pwa_state', state);
     refreshAllViews();
     
     let log = state.logs[dateKey];
@@ -2205,13 +2321,11 @@ const DEFAULT_SUPPLEMENTS = [
 ];
 
 function getSuppCatalog() {
-    const saved = localStorage.getItem('n1_supp_catalog');
-    if (saved) return JSON.parse(saved);
-    return [...DEFAULT_SUPPLEMENTS];
+    return storeGetCached('n1_supp_catalog') || [...DEFAULT_SUPPLEMENTS];
 }
 
-function saveSuppCatalog(catalog) {
-    localStorage.setItem('n1_supp_catalog', JSON.stringify(catalog));
+async function saveSuppCatalog(catalog) {
+    await storeSet('n1_supp_catalog', catalog);
     if (supabaseClient && !isGuest()) {
         const uid = getUserId();
         Promise.all(catalog.map(s =>
@@ -2284,12 +2398,11 @@ function restoreSupplementForm() {
 }
 
 function getGearStore() {
-    const saved = localStorage.getItem('n1_gear');
-    return saved ? JSON.parse(saved) : [];
+    return storeGetCached('n1_gear') || [];
 }
 
-function saveGearStore(gear) {
-    localStorage.setItem('n1_gear', JSON.stringify(gear));
+async function saveGearStore(gear) {
+    await storeSet('n1_gear', gear);
     if (supabaseClient && !isGuest()) {
         supabaseClient.from('gear_items').upsert(
             gear.map(g => ({
@@ -2349,12 +2462,11 @@ function retireGear(id) {
 }
 
 function getRaceStore() {
-    const saved = localStorage.getItem('n1_races');
-    return saved ? JSON.parse(saved) : [];
+    return storeGetCached('n1_races') || [];
 }
 
-function saveRaceStore(races) {
-    localStorage.setItem('n1_races', JSON.stringify(races));
+async function saveRaceStore(races) {
+    await storeSet('n1_races', races);
     if (supabaseClient && !isGuest()) {
         supabaseClient.from('race_events').upsert(
             races.map(r => ({
@@ -2410,12 +2522,11 @@ function addRaceFromUI() {
 }
 
 function getCustomMetrics() {
-    const saved = localStorage.getItem('n1_custom_metrics');
-    return saved ? JSON.parse(saved) : [];
+    return storeGetCached('n1_custom_metrics') || [];
 }
 
-function saveCustomMetrics(metrics) {
-    localStorage.setItem('n1_custom_metrics', JSON.stringify(metrics));
+async function saveCustomMetrics(metrics) {
+    await storeSet('n1_custom_metrics', metrics);
     if (supabaseClient && !isGuest()) {
         const uid = getUserId();
         Promise.all(metrics.map(m =>
@@ -2541,13 +2652,12 @@ function restoreHormoneForm() {
 }
 
 function getPhotoStore() {
-    const saved = localStorage.getItem('n1_photos');
-    return saved ? JSON.parse(saved) : [];
+    return storeGetCached('n1_photos') || [];
 }
 
-function savePhotoStore(photos) {
+async function savePhotoStore(photos) {
     const lite = photos.map(p => ({ id: p.id, date: p.date, type: p.type, url: p.url || null }));
-    localStorage.setItem('n1_photos', JSON.stringify(lite));
+    await storeSet('n1_photos', lite);
 }
 
 async function loadPhotosFromCloud() {
@@ -2622,12 +2732,11 @@ function uploadPhoto() {
 }
 
 function getTrainingPlanStore() {
-    const saved = localStorage.getItem('n1_training_plans');
-    return saved ? JSON.parse(saved) : [];
+    return storeGetCached('n1_training_plans') || [];
 }
 
 async function saveTrainingPlanStore(plans) {
-    localStorage.setItem('n1_training_plans', JSON.stringify(plans));
+    await storeSet('n1_training_plans', plans);
     if (supabaseClient && !isGuest()) {
         const uid = getUserId();
         for (const p of plans) {
@@ -2684,7 +2793,7 @@ async function pullTrainingPlans() {
                 active: p.active,
                 updatedAt: p.updated_at
             }));
-            localStorage.setItem('n1_training_plans', JSON.stringify(plans));
+            await storeSet('n1_training_plans', plans);
             renderTrainingPlans();
         }
     } catch (e) { console.warn('Training plan pull failed', e); }
@@ -2742,7 +2851,7 @@ function renderPlanCard(p, days) {
     </div>`;
 }
 
-function createTrainingPlan() {
+async function createTrainingPlan() {
     const name = document.getElementById('tp-name').value.trim();
     const startDate = document.getElementById('tp-start').value;
     const endDate = document.getElementById('tp-end').value;
@@ -2767,7 +2876,7 @@ function createTrainingPlan() {
         active: true,
         updatedAt: new Date().toISOString()
     });
-    saveTrainingPlanStore(plans);
+    await saveTrainingPlanStore(plans);
     document.getElementById('tp-name').value = '';
     renderTrainingPlans();
     showToast('Training plan created.');
@@ -2780,7 +2889,7 @@ async function deactivatePlan(id) {
         plan.active = false;
         plan.updatedAt = new Date().toISOString();
     }
-    localStorage.setItem('n1_training_plans', JSON.stringify(plans));
+    await storeSet('n1_training_plans', plans);
     renderTrainingPlans();
     if (supabaseClient && !isGuest()) {
         try {
@@ -2810,7 +2919,7 @@ async function deletePlan(id, name) {
     if (!confirm(`Delete "${name}" permanently?`)) return;
     let plans = getTrainingPlanStore();
     plans = plans.filter(p => p.id !== id);
-    localStorage.setItem('n1_training_plans', JSON.stringify(plans));
+    await storeSet('n1_training_plans', plans);
     renderTrainingPlans();
     if (supabaseClient && !isGuest()) {
         try {
@@ -2975,10 +3084,11 @@ function exportProgressCSV() {
     showToast('Progress CSV exported.');
 }
 
-function resetAllData() {
+async function resetAllData() {
     if (!confirm('This will permanently delete ALL local data. Are you sure?')) return;
     if (!confirm('Last chance: this cannot be undone. Proceed?')) return;
-    localStorage.removeItem('n1_pwa_state');
+    await storeRemove('n1_pwa_state');
+    Object.keys(_memCache).forEach(k => delete _memCache[k]);
     localStorage.removeItem('n1_weather_key');
     showToast('All data cleared. Reloading...');
     setTimeout(() => location.reload(), 1000);
@@ -3004,9 +3114,8 @@ async function fetchWeather() {
             if (!num(log.humidity)) log.humidity = data.main.humidity;
             if (data.wind) log.windSpeed = Math.round(data.wind.speed * 10) / 10;
             if (data.weather && data.weather[0]) log.weatherCondition = data.weather[0].main;
-            localStorage.setItem('n1_pwa_state', JSON.stringify(state));
             state.weatherLastFetch = new Date().toISOString();
-            localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+            await storeSet('n1_pwa_state', state);
         }
     } catch (e) {
         console.warn('Weather fetch failed:', e);
@@ -3373,7 +3482,7 @@ async function syncStravaInboxFromCloud() {
     }
 
     imported += importExternalActivities(buildActivitiesFromDailyLogs(), 'strava');
-    localStorage.setItem('n1_pwa_state', JSON.stringify(state));
+    await storeSet('n1_pwa_state', state);
     refreshAllViews();
     showToast(imported > 0 ? `Imported ${imported} new activities.` : 'Activity inbox is up to date.');
 }
@@ -4780,6 +4889,32 @@ async function renderChart(id, type, data, options = {}) {
     }
     
     charts[id] = new Chart(canvas, { type, data, options: mergedOptions });
+
+    let tableId = id + '-table';
+    let tableEl = document.getElementById(tableId);
+    if (!tableEl) {
+        tableEl = document.createElement('table');
+        tableEl.id = tableId;
+        tableEl.className = 'sr-only';
+        tableEl.setAttribute('role', 'table');
+        tableEl.setAttribute('aria-label', canvas.getAttribute('aria-label') + ' data table');
+        canvas.parentNode.insertBefore(tableEl, canvas.nextSibling);
+    }
+    if (data.labels && data.datasets) {
+        let html = '<thead><tr><th>Date</th>';
+        data.datasets.forEach(ds => { html += `<th>${ds.label || 'Value'}</th>`; });
+        html += '</tr></thead><tbody>';
+        data.labels.forEach((label, i) => {
+            html += `<tr><td>${label}</td>`;
+            data.datasets.forEach(ds => {
+                const val = ds.data && ds.data[i] !== undefined ? ds.data[i] : '—';
+                html += `<td>${val}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody>';
+        tableEl.innerHTML = html;
+    }
 }
 
 function updateDataDump() {
