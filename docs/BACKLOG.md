@@ -123,14 +123,16 @@ This document tracks upcoming features, deferred tasks, and architectural upgrad
 
 ### Low Priority
 
-- [ ] **GitHub Pages Deployment**
-  - Alternative to VPS deployment.
-  - Serve at `https://momen124.github.io/fitness-pwa/`.
+- [x] **GitHub Pages Deployment**
+  - Workflow: `.github/workflows/pages.yml` deploys on push to master.
+  - Live at `https://momen124.github.io/fitness-pwa/`.
+  - Redundant hosting alongside VPS at `pwa.siwaway.com`.
 
-- [x] **Offline-First Refinement** (partial)
+- [x] **Offline-First Refinement**
   - Queue writes when offline, replay on reconnect ✅
   - Show sync status indicator (online/offline/syncing) ✅
-  - IndexedDB instead of localStorage for larger data capacity — not done yet.
+  - IndexedDB replaces localStorage for 7 large data keys ✅
+  - Small flags (user_id, guest_mode, weather_key) stay in localStorage.
 
 - [x] **Performance Optimization**
   - Lazy-load Chart.js (only loads on Progress tab / sparklines) ✅
@@ -149,4 +151,4 @@ This document tracks upcoming features, deferred tasks, and architectural upgrad
   - Joint heatmap: role=button, tabindex, dynamic aria-label ✅
   - Concept cards: keyboard support + aria-expanded ✅
   - ARIA labels on interactive elements ✅
-  - Screen reader support for charts (data tables fallback) — not done yet.
+  - Screen reader support for charts (hidden data tables) ✅
