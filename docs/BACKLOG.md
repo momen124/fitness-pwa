@@ -110,9 +110,13 @@ This document tracks upcoming features, deferred tasks, and architectural upgrad
   - Blocked on Google Cloud Auth configuration.
   - Action: complete `google_fit_setup.js`, add secrets to GitHub.
 
-- [ ] **Training Plan Cloud Bidirectional Sync**
-  - Currently push-only with pull merge on startup.
-  - Add: edit from cloud, detect conflicts, allow plan deletion.
+- [x] **Training Plan Cloud Bidirectional Sync**
+  - Full CRUD via edge function: upsert-plan, delete-plan, deactivate-plan.
+  - Conflict detection: server `updated_at` > client `updatedAt` → reject + auto-pull.
+  - Pull on startup: full replace from cloud (server wins by timestamp).
+  - Delete removes from cloud; deactivate sets `active=false` server-side.
+  - Frontend: edit button (inline form with weekly structure editor), delete (confirm dialog), reactivate.
+  - Plans no longer stored as `plan_data` blob — mapped to proper columns.
 
 - [x] **Data Export Enhancement**
   - CSV export now includes 3 sections: daily logs (55 columns, 90 days), gear items (name/type/km/%), race events (countdown), progress photos (metadata).
