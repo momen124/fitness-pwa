@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>N=1 Performance Lab</title>
     <meta name="description" content="Personal PWA Dashboard for subjective and passive metrics.">
     <meta name="theme-color" content="#090b14">
@@ -16,10 +16,6 @@
     
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230d0e12'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='28' fill='%237c3aed' font-family='Arial, sans-serif'%3E N1%3C/text%3E%3C/svg%3E">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230d0e12'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='72' fill='%237c3aed' font-family='Arial, sans-serif'%3E N1%3C/text%3E%3C/svg%3E">
-    <!-- Supabase SDK (Ready for Cloud Sync) -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 </head>
 <body class="mode-alexandria">
@@ -31,11 +27,11 @@
             </div>
             <div id="auth-form-login" class="auth-form">
                 <div class="input-group">
-                    <label>Email</label>
+                    <label for="auth-email">Email</label>
                     <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email">
                 </div>
                 <div class="input-group">
-                    <label>Password</label>
+                    <label for="auth-password">Password</label>
                     <input type="password" id="auth-password" placeholder="Min 6 characters" autocomplete="current-password">
                 </div>
                 <button class="btn btn-primary w-full" id="btn-auth-login">Log In</button>
@@ -46,15 +42,15 @@
             </div>
             <div id="auth-form-signup" class="auth-form" style="display:none">
                 <div class="input-group">
-                    <label>Display Name</label>
+                    <label for="auth-display-name">Display Name</label>
                     <input type="text" id="auth-display-name" placeholder="Your name">
                 </div>
                 <div class="input-group">
-                    <label>Email</label>
+                    <label for="auth-signup-email">Email</label>
                     <input type="email" id="auth-signup-email" placeholder="your@email.com" autocomplete="email">
                 </div>
                 <div class="input-group">
-                    <label>Password</label>
+                    <label for="auth-signup-password">Password</label>
                     <input type="password" id="auth-signup-password" placeholder="Min 6 characters" autocomplete="new-password">
                 </div>
                 <button class="btn btn-primary w-full" id="btn-auth-signup">Create Account</button>
@@ -62,7 +58,7 @@
                     Have an account? <a href="#" id="auth-show-login" style="color:#6496ff">Log in</a>
                 </p>
             </div>
-            <div id="auth-error" class="text-sm" style="color:#ff6b6b;text-align:center;margin-top:0.5rem;display:none"></div>
+            <div id="auth-error" class="text-sm" role="alert" aria-live="assertive" style="color:#ff6b6b;text-align:center;margin-top:0.5rem;display:none"></div>
         </div>
     </div>
     <a class="skip-link" href="#view-dashboard">Skip to content</a>
@@ -80,10 +76,16 @@
         </header>
 
         <!-- Main Content Area -->
-        <main class="content-area">
+        <main class="content-area" id="main-content">
+            
+            <div id="loading-skeleton">
+                <div class="skeleton skeleton-card"></div>
+                <div class="skeleton skeleton-card"></div>
+                <div class="skeleton skeleton-card"></div>
+            </div>
             
             <!-- Dashboard Tab -->
-            <section id="view-dashboard" class="view active">
+            <section id="view-dashboard" class="view active" role="tabpanel" aria-labelledby="tab-dashboard">
                 <div class="quote-card glass-card fade-in">
                     <p id="motivational-quote" class="quote-text">"One more day closer to free diving and kitesurfing."</p>
                 </div>
@@ -162,25 +164,25 @@
                         <div class="stat-card" id="card-acwr" style="padding:12px;">
                             <div class="stat-label">ACWR</div>
                             <div class="stat-value" id="card-acwr-val">—</div>
-                            <canvas id="spark-acwr" width="120" height="40" style="margin-top:6px;"></canvas>
+                            <canvas id="spark-acwr" width="120" height="40" role="img" aria-label="ACWR sparkline" style="margin-top:6px;"></canvas>
                             <div class="card-tip" id="card-acwr-tip" style="font-size:0.8rem;color:var(--text-secondary);"></div>
                         </div>
                         <div class="stat-card" id="card-wbgt" style="padding:12px;">
                             <div class="stat-label">WBGT</div>
                             <div class="stat-value" id="card-wbgt-val">—</div>
-                            <canvas id="spark-wbgt" width="120" height="40" style="margin-top:6px;"></canvas>
+                            <canvas id="spark-wbgt" width="120" height="40" role="img" aria-label="WBGT sparkline" style="margin-top:6px;"></canvas>
                             <div class="card-tip" id="card-wbgt-tip" style="font-size:0.8rem;color:var(--text-secondary);"></div>
                         </div>
                         <div class="stat-card" id="card-tdee" style="padding:12px;">
                             <div class="stat-label">TDEE</div>
                             <div class="stat-value" id="card-tdee-val">—</div>
-                            <canvas id="spark-tdee" width="120" height="40" style="margin-top:6px;"></canvas>
+                            <canvas id="spark-tdee" width="120" height="40" role="img" aria-label="TDEE sparkline" style="margin-top:6px;"></canvas>
                             <div class="card-tip" id="card-tdee-tip" style="font-size:0.8rem;color:var(--text-secondary);"></div>
                         </div>
                         <div class="stat-card" id="card-fatigue" style="padding:12px;">
                             <div class="stat-label">Fatigue</div>
                             <div class="stat-value" id="card-fatigue-val">—</div>
-                            <canvas id="spark-fatigue" width="120" height="40" style="margin-top:6px;"></canvas>
+                            <canvas id="spark-fatigue" width="120" height="40" role="img" aria-label="Fatigue sparkline" style="margin-top:6px;"></canvas>
                             <div class="card-tip" id="card-fatigue-tip" style="font-size:0.8rem;color:var(--text-secondary);"></div>
                         </div>
                     </div>
@@ -331,7 +333,7 @@
             </section>
 
             <!-- Strava Activities Tab -->
-            <section id="view-strava" class="view">
+            <section id="view-strava" class="view" role="tabpanel" aria-labelledby="tab-strava">
                 <div class="glass-card">
                     <div class="strava-header">
                         <div>
@@ -365,42 +367,42 @@
             </section>
 
             <!-- Daily Log Tab -->
-            <section id="view-log" class="view">
+            <section id="view-log" class="view" role="tabpanel" aria-labelledby="tab-log">
                 <div class="glass-card">
                     <h2 class="mb-4">🧠 Subjective Truth</h2>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Date (Auto)</label>
+                            <label for="log-date">Date (Auto)</label>
                             <input type="date" id="log-date" readonly>
                         </div>
                         <div class="flex-row">
                             <div class="input-group flex-1">
-                                <label>Morning Weight</label>
+                                <label for="log-weight">Morning Weight</label>
                                 <input type="number" id="log-weight" step="0.1">
                             </div>
                             <div class="input-group flex-1">
-                                <label>CNS Fatigue (1-5)</label>
+                                <label for="log-cns-fatigue">CNS Fatigue (1-5)</label>
                                 <input type="number" id="log-cns-fatigue" min="1" max="5">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Work Stress (1-5) <span id="workStressVal" class="pill" style="padding:0.2rem 0.5rem;font-size:0.7rem;">1</span></label>
+                                <label for="log-work-stress">Work Stress (1-5) <span id="workStressVal" class="pill" style="padding:0.2rem 0.5rem;font-size:0.7rem;">1</span></label>
                                 <input type="range" id="log-work-stress" min="1" max="5" step="1" value="1" oninput="document.getElementById('workStressVal').textContent = this.value">
                                 <small style="color:var(--text-muted);font-size:0.7rem;">1 = Deep work/flow. 5 = Burnout deadlines, context switching.</small>
                             </div>
                             <div class="input-group flex-1">
-                                <label>Body Fat % <span class="optional" style="color:var(--text-muted);font-size:0.7rem;">(for velocity tracking)</span></label>
+                                <label for="log-bodyfat">Body Fat % <span class="optional" style="color:var(--text-muted);font-size:0.7rem;">(for velocity tracking)</span></label>
                                 <input type="number" id="log-bodyfat" step="0.1" min="3" max="60" placeholder="e.g. 12.5">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Target Muscle</label>
+                                <label for="log-muscle-target">Target Muscle</label>
                                 <input type="text" id="log-muscle-target" placeholder="e.g. Quads">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Muscle Sets</label>
+                                <label for="log-muscle-sets">Muscle Sets</label>
                                 <input type="number" id="log-muscle-sets">
                             </div>
                         </div>
@@ -412,33 +414,33 @@
                     <div class="form-grid">
                         <div class="flex-row">
                             <div class="input-group flex-1">
-                                <label>Sleep (hrs)</label>
+                                <label for="log-sleep-hrs">Sleep (hrs)</label>
                                 <input type="number" id="log-sleep-hrs" step="0.5">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Sleep Quality (1-5)</label>
+                                <label for="log-sleep-qual">Sleep Quality (1-5)</label>
                                 <input type="number" id="log-sleep-qual" min="1" max="5">
                             </div>
                             <div class="input-group flex-1">
-                                <label>HRV (ms)</label>
+                                <label for="log-hrv">HRV (ms)</label>
                                 <input type="number" id="log-hrv">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Resting HR</label>
+                                <label for="log-resting-hr">Resting HR</label>
                                 <input type="number" id="log-resting-hr">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Soreness (0-10)</label>
+                                <label for="log-soreness">Soreness (0-10)</label>
                                 <input type="number" id="log-soreness" min="0" max="10">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Stress (0-10)</label>
+                                <label for="log-stress">Stress (0-10)</label>
                                 <input type="number" id="log-stress" min="0" max="10">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Motivation (0-10)</label>
+                                <label for="log-motivation">Motivation (0-10)</label>
                                 <input type="number" id="log-motivation" min="0" max="10">
                             </div>
                         </div>
@@ -463,11 +465,11 @@
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>🌡️ Temp (°C)</label>
+                                <label for="log-temp">🌡️ Temp (°C)</label>
                                 <input type="number" id="log-temp" step="0.1" placeholder="Auto-synced">
                             </div>
                             <div class="input-group flex-1">
-                                <label>💧 Humidity (%)</label>
+                                <label for="log-humidity">💧 Humidity (%)</label>
                                 <input type="number" id="log-humidity" min="0" max="100" placeholder="Auto-synced">
                             </div>
                         </div>
@@ -479,27 +481,27 @@
                     <p class="text-sm text-secondary mb-3">Quick subjective snapshot. Rate each area 1-5.</p>
                     <div class="form-grid" id="wellness-form">
                         <div class="input-group">
-                            <label>Overall Mood (1-5)</label>
+                            <label for="wq-mood">Overall Mood (1-5)</label>
                             <input type="range" id="wq-mood" min="1" max="5" value="3" class="w-full">
                             <div class="flex-row" style="justify-content:space-between;font-size:0.65rem;color:var(--text-secondary)"><span>Terrible</span><span>Great</span></div>
                         </div>
                         <div class="input-group">
-                            <label>Digestion (1-5)</label>
+                            <label for="wq-digestion">Digestion (1-5)</label>
                             <input type="range" id="wq-digestion" min="1" max="5" value="3" class="w-full">
                             <div class="flex-row" style="justify-content:space-between;font-size:0.65rem;color:var(--text-secondary)"><span>Bloated</span><span>Perfect</span></div>
                         </div>
                         <div class="input-group">
-                            <label>Joint Feel (1-5)</label>
+                            <label for="wq-joints">Joint Feel (1-5)</label>
                             <input type="range" id="wq-joints" min="1" max="5" value="3" class="w-full">
                             <div class="flex-row" style="justify-content:space-between;font-size:0.65rem;color:var(--text-secondary)"><span>Stiff</span><span>Fluid</span></div>
                         </div>
                         <div class="input-group">
-                            <label>Confidence (1-5)</label>
+                            <label for="wq-confidence">Confidence (1-5)</label>
                             <input type="range" id="wq-confidence" min="1" max="5" value="3" class="w-full">
                             <div class="flex-row" style="justify-content:space-between;font-size:0.65rem;color:var(--text-secondary)"><span>Low</span><span>High</span></div>
                         </div>
                         <div class="input-group">
-                            <label>Soreness Locations</label>
+                            <label for="wq-soreness-locs">Soreness Locations</label>
                             <input type="text" id="wq-soreness-locs" placeholder="e.g. quads, lower back">
                         </div>
                         <button class="btn btn-primary btn-sm w-full" id="btn-save-wellness">Save Check-In</button>
@@ -511,7 +513,7 @@
                     <div class="form-grid">
                         <div class="flex-row">
                             <div class="input-group flex-2">
-                                <label>Target Joint/Area</label>
+                                <label for="log-injury-loc">Target Joint/Area</label>
                                 <input type="text" id="log-injury-loc" list="injuryList" placeholder="e.g. Left Patella">
                                 <datalist id="injuryList">
                                     <option value="Left Shoulder"><option value="Right Shoulder">
@@ -528,13 +530,13 @@
                                 </datalist>
                             </div>
                             <div class="input-group flex-1">
-                                <label>Pain (0-10)</label>
+                                <label for="log-injury-pain">Pain (0-10)</label>
                                 <input type="number" id="log-injury-pain" min="0" max="10">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Side</label>
+                                <label for="log-pain-side">Side</label>
                                 <select id="log-pain-side">
                                     <option value="center">Center</option>
                                     <option value="left">Left</option>
@@ -542,7 +544,7 @@
                                 </select>
                             </div>
                             <div class="input-group flex-1">
-                                <label>Pain Type</label>
+                                <label for="log-pain-type">Pain Type</label>
                                 <select id="log-pain-type">
                                     <option value="unknown">Unknown</option>
                                     <option value="joint">Joint</option>
@@ -552,7 +554,7 @@
                                 </select>
                             </div>
                             <div class="input-group flex-1">
-                                <label>Timing</label>
+                                <label for="log-pain-timing">Timing</label>
                                 <select id="log-pain-timing">
                                     <option value="during">During</option>
                                     <option value="after">After</option>
@@ -562,11 +564,11 @@
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Action Taken</label>
+                                <label for="log-pain-action">Action Taken</label>
                                 <input type="text" id="log-pain-action" placeholder="e.g. swapped run for bike">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Pain Notes</label>
+                                <label for="log-pain-notes">Pain Notes</label>
                                 <input type="text" id="log-pain-notes" placeholder="optional">
                             </div>
                         </div>
@@ -577,7 +579,7 @@
                     <h2 class="mb-4">🏋️‍♂️ Strength & Structure</h2>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Session Type</label>
+                            <label for="log-gym-type">Session Type</label>
                             <input type="hidden" id="log-gym-type" value="NONE">
                             <div class="sub-nav-pills form-pills" data-target-id="log-gym-type" style="margin-top:0.5rem; overflow-x:auto;">
                                 <button class="pill active" data-val="NONE">None</button>
@@ -593,7 +595,7 @@
                         <div id="gym-details" class="hidden">
                             <div class="flex-row mt-2">
                                 <div class="input-group flex-1">
-                                    <label>Start Time</label>
+                                    <label for="log-gym-start">Start Time</label>
                                     <input type="time" id="log-gym-start" value="10:00">
                                 </div>
                                 <div class="toggle-group flex-1" style="display: flex; align-items: flex-end;">
@@ -605,30 +607,30 @@
                                 </div>
                             </div>
                             <div class="input-group mt-2">
-                                <label>Primary Lift</label>
+                                <label for="log-lift-name">Primary Lift</label>
                                 <input type="text" id="log-lift-name" placeholder="e.g. Trap Bar DL">
                             </div>
                             <div class="flex-row mt-2">
                                 <div class="input-group flex-1">
-                                    <label>Weight (kg)</label>
+                                    <label for="log-lift-weight">Weight (kg)</label>
                                     <input type="number" id="log-lift-weight" step="0.5">
                                 </div>
                                 <div class="input-group flex-1">
-                                    <label>Sets</label>
+                                    <label for="log-lift-sets">Sets</label>
                                     <input type="number" id="log-lift-sets">
                                 </div>
                             </div>
                             <div class="flex-row mt-2">
                                 <div class="input-group flex-1">
-                                    <label>Reps / Set</label>
+                                    <label for="log-lift-reps">Reps / Set</label>
                                     <input type="number" id="log-lift-reps" min="1" max="30">
                                 </div>
                                 <div class="input-group flex-1">
-                                    <label>Rest (sec)</label>
+                                    <label for="log-lift-rest">Rest (sec)</label>
                                     <input type="number" id="log-lift-rest" min="0" step="15">
                                 </div>
                                 <div class="input-group flex-1">
-                                    <label>Actual RIR</label>
+                                    <label for="log-lift-rir">Actual RIR</label>
                                     <input type="number" id="log-lift-rir">
                                 </div>
                             </div>
@@ -695,7 +697,7 @@
                                 </label>
                             </div>
                             <div class="input-group mt-2">
-                                <label>Movement Notes</label>
+                                <label for="log-movement-notes">Movement Notes</label>
                                 <input type="text" id="log-movement-notes" placeholder="Technique quality notes">
                             </div>
                         </div>
@@ -736,7 +738,9 @@
                         <div class="supp-empty-state text-sm text-secondary">Loading supplements...</div>
                     </div>
                     <div class="flex-row mt-3" style="gap:0.5rem;flex-wrap:wrap;">
+                        <label for="supp-quick-add" class="sr-only">Quick add supplement</label>
                         <input type="text" id="supp-quick-add" placeholder="Quick add supplement..." class="flex-1" style="min-width:140px;">
+                        <label for="supp-quick-timing" class="sr-only">Supplement timing</label>
                         <select id="supp-quick-timing" style="min-width:110px;">
                             <option value="morning">Morning</option>
                             <option value="pre_workout">Pre-Workout</option>
@@ -754,27 +758,27 @@
                     <div class="form-grid">
                         <div class="flex-row">
                             <div class="input-group flex-1">
-                                <label>Test Date</label>
+                                <label for="log-inbody-date">Test Date</label>
                                 <input type="date" id="log-inbody-date">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Total Weight (kg)</label>
+                                <label for="log-inbody-weight">Total Weight (kg)</label>
                                 <input type="number" id="log-inbody-weight" step="0.1">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Skeletal Muscle (SMM) kg</label>
+                                <label for="log-inbody-smm">Skeletal Muscle (SMM) kg</label>
                                 <input type="number" id="log-inbody-smm" step="0.1">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Body Fat (PBF) %</label>
+                                <label for="log-inbody-bf">Body Fat (PBF) %</label>
                                 <input type="number" id="log-inbody-bf" step="0.1">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Total Body Water (TBW) L</label>
+                                <label for="log-inbody-tbw">Total Body Water (TBW) L</label>
                                 <input type="number" id="log-inbody-tbw" step="0.1">
                             </div>
                         </div>
@@ -786,7 +790,7 @@
                     <p class="text-sm text-secondary mb-4">Use this if the automated Strava integration fails.</p>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Activity Type</label>
+                            <label for="log-cardio-type">Activity Type</label>
                             <input type="hidden" id="log-cardio-type" value="NONE">
                             <div class="sub-nav-pills form-pills" data-target-id="log-cardio-type" style="margin-top:0.5rem; overflow-x:auto;">
                                 <button class="pill active" data-val="NONE">None</button>
@@ -799,41 +803,41 @@
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Start Time</label>
+                                <label for="log-cardio-start">Start Time</label>
                                 <input type="time" id="log-cardio-start">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Duration (mins)</label>
+                                <label for="log-cardio-duration">Duration (mins)</label>
                                 <input type="number" id="log-cardio-duration">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Strava RPE</label>
+                                <label for="log-cardio-rpe">Strava RPE</label>
                                 <input type="number" id="log-cardio-rpe">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Gear Used</label>
+                                <label for="log-gear-select">Gear Used</label>
                                 <select id="log-gear-select"><option value="">None</option></select>
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Zone 1 Min</label>
+                                <label for="log-zone1">Zone 1 Min</label>
                                 <input type="number" id="log-zone1" min="0">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Zone 2 Min</label>
+                                <label for="log-zone2">Zone 2 Min</label>
                                 <input type="number" id="log-zone2" min="0">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Zone 3 Min</label>
+                                <label for="log-zone3">Zone 3 Min</label>
                                 <input type="number" id="log-zone3" min="0">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Zone 4 Min</label>
+                                <label for="log-zone4">Zone 4 Min</label>
                                 <input type="number" id="log-zone4" min="0">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Zone 5 Min</label>
+                                <label for="log-zone5">Zone 5 Min</label>
                                 <input type="number" id="log-zone5" min="0">
                             </div>
                         </div>
@@ -845,15 +849,15 @@
                     <div class="form-grid">
                         <div class="flex-row">
                             <div class="input-group flex-1">
-                                <label>Pre-Workout Carbs (g)</label>
+                                <label for="log-pre-workout-carbs">Pre-Workout Carbs (g)</label>
                                 <input type="number" id="log-pre-workout-carbs" value="0">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Intra Carbs (g)</label>
+                                <label for="log-intra-carbs">Intra Carbs (g)</label>
                                 <input type="number" id="log-intra-carbs" value="0">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Pre Sodium (mg)</label>
+                                <label for="log-pre-sodium">Pre Sodium (mg)</label>
                                 <input type="number" id="log-pre-sodium" value="0">
                             </div>
                         </div>
@@ -866,11 +870,11 @@
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Post Protein (g)</label>
+                                <label for="log-post-protein">Post Protein (g)</label>
                                 <input type="number" id="log-post-protein" value="0">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Post Carbs (g)</label>
+                                <label for="log-post-carbs">Post Carbs (g)</label>
                                 <input type="number" id="log-post-carbs" value="0">
                             </div>
                         </div>
@@ -883,51 +887,51 @@
                     <div class="form-grid">
                         <div class="flex-row">
                             <div class="input-group flex-1">
-                                <label>Calories</label>
+                                <label for="log-cals">Calories</label>
                                 <input type="number" id="log-cals" placeholder="2800">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Protein (g)</label>
+                                <label for="log-pro">Protein (g)</label>
                                 <input type="number" id="log-pro" placeholder="180">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Caffeine (mg)</label>
+                                <label for="log-caffeine">Caffeine (mg)</label>
                                 <input type="number" id="log-caffeine" placeholder="e.g. 200">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Peak Energy Window</label>
+                                <label for="log-energy-window">Peak Energy Window</label>
                                 <input type="time" id="log-energy-window" placeholder="e.g. 15:00">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Carbs (g)</label>
+                                <label for="log-carbs">Carbs (g)</label>
                                 <input type="number" id="log-carbs" placeholder="300">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Fats (g)</label>
+                                <label for="log-fats">Fats (g)</label>
                                 <input type="number" id="log-fats" placeholder="80">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Water (L)</label>
+                                <label for="log-water">Water (L)</label>
                                 <input type="number" id="log-water" step="0.1" placeholder="3.0">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Sodium (mg)</label>
+                                <label for="log-sodium">Sodium (mg)</label>
                                 <input type="number" id="log-sodium" placeholder="2500">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>Fiber (g)</label>
+                                <label for="log-fiber">Fiber (g)</label>
                                 <input type="number" id="log-fiber" placeholder="30">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Sugar (g)</label>
+                                <label for="log-sugar">Sugar (g)</label>
                                 <input type="number" id="log-sugar" placeholder="40">
                             </div>
                         </div>
@@ -944,21 +948,21 @@
                         <p class="text-sm text-secondary mb-4">Input blood lab results to ensure endocrine/iron health.</p>
                         <div class="flex-row">
                             <div class="input-group flex-1">
-                                <label>Testosterone (ng/dL)</label>
+                                <label for="log-bio-test">Testosterone (ng/dL)</label>
                                 <input type="number" id="log-bio-test">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Cortisol AM (ug/dL)</label>
+                                <label for="log-bio-cortisol">Cortisol AM (ug/dL)</label>
                                 <input type="number" id="log-bio-cortisol" step="0.1">
                             </div>
                         </div>
                         <div class="flex-row mt-2">
                             <div class="input-group flex-1">
-                                <label>hs-CRP (mg/L)</label>
+                                <label for="log-bio-hscrp">hs-CRP (mg/L)</label>
                                 <input type="number" id="log-bio-hscrp" step="0.1">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Ferritin (ng/mL)</label>
+                                <label for="log-bio-ferritin">Ferritin (ng/mL)</label>
                                 <input type="number" id="log-bio-ferritin">
                             </div>
                         </div>
@@ -968,7 +972,7 @@
                 <button id="btn-save-log" class="btn btn-primary w-full mt-4" style="margin-bottom: 2rem;">Save Mission Log</button>
             </section>
 
-            <section id="view-progress" class="view">
+            <section id="view-progress" class="view" role="tabpanel" aria-labelledby="tab-progress">
                 
                 <div class="sub-nav-pills mb-4">
                     <button class="pill active" data-group="chart-recovery">Recovery</button>
@@ -982,7 +986,7 @@
                         <h2><i data-lucide="trending-up"></i> Fatigue vs. Load</h2>
                         <p class="text-sm text-secondary mb-4">7-Day trailing ratio of CNS Fatigue against Strava Effort.</p>
                         <div style="position: relative; height: 200px; width: 100%;">
-                            <canvas id="trendChart"></canvas>
+                            <canvas id="trendChart" role="img" aria-label="Fatigue vs Load trend chart"></canvas>
                         </div>
                     </div>
 
@@ -990,13 +994,13 @@
                         <div class="glass-card bento-item">
                             <h2><i data-lucide="crosshair"></i> Subjective Readiness</h2>
                             <div style="position: relative; height: 200px; width: 100%;">
-                                <canvas id="radarChart"></canvas>
+                                <canvas id="radarChart" role="img" aria-label="Subjective Readiness radar chart"></canvas>
                             </div>
                         </div>
                         <div class="glass-card bento-item">
                             <h2><i data-lucide="heart-pulse"></i> HRV vs. Load</h2>
                             <div style="position: relative; height: 200px; width: 100%;">
-                                <canvas id="hrvChart"></canvas>
+                                <canvas id="hrvChart" role="img" aria-label="HRV vs Load chart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -1005,7 +1009,7 @@
                         <h2><i data-lucide="activity"></i> Injury Tracker</h2>
                         <p class="text-sm text-secondary mb-4">Pain scaling over time for isolated areas.</p>
                         <div style="position: relative; height: 180px; width: 100%;">
-                            <canvas id="injuryChart"></canvas>
+                            <canvas id="injuryChart" role="img" aria-label="Injury tracker chart"></canvas>
                         </div>
                     </div>
 
@@ -1014,7 +1018,7 @@
                         <p class="text-sm text-secondary mb-4">14-day spatial pain map. Red intensity = max pain at that joint.</p>
                             <div class="heatmap-container">
                                 <div class="body-map-wrapper">
-                                    <img src="images/body-front.png" class="body-wireframe-img" alt="Front Body">
+                                    <img src="images/body-front.png" class="body-wireframe-img" alt="Front body wireframe for joint pain heatmap">
                                     <div id="joint-head" class="joint-point" data-loc="Head" style="top: 10%; left: 50%;"></div>
                                     <div id="joint-neck" class="joint-point" data-loc="Neck" style="top: 16%; left: 50%;"></div>
                                     <div id="joint-l-shoulder" class="joint-point" data-loc="Left Shoulder" style="top: 25%; left: 58%;"></div>
@@ -1033,7 +1037,7 @@
                                     <div id="joint-r-foot" class="joint-point" data-loc="Right Foot" style="top: 92%; left: 45%;"></div>
                                 </div>
                                 <div class="body-map-wrapper">
-                                    <img src="images/body-back.png" class="body-wireframe-img" alt="Back Body">
+                                    <img src="images/body-back.png" class="body-wireframe-img" alt="Back body wireframe for joint pain heatmap">
                                     <div id="joint-upper-back" class="joint-point" data-loc="Upper Back" style="top: 26%; left: 50%;"></div>
                                     <div id="joint-lower-back" class="joint-point" data-loc="Lower Back" style="top: 46%; left: 50%;"></div>
                                     <div id="joint-l-achilles" class="joint-point" data-loc="Left Achilles" style="top: 86%; left: 48%;"></div>
@@ -1054,7 +1058,7 @@
                         <h2><i data-lucide="brain"></i> Mental vs. Physical Stress</h2>
                         <p class="text-sm text-secondary mb-4">Cognitive load (1-5) mapped against objective training strain. Red = high stress days.</p>
                         <div style="position: relative; height: 220px; width: 100%;">
-                            <canvas id="mentalVsPhysicalChart"></canvas>
+                            <canvas id="mentalVsPhysicalChart" role="img" aria-label="Mental vs Physical Stress chart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -1065,7 +1069,7 @@
                         <h2><i data-lucide="activity"></i> Aerobic Decoupling (EF)</h2>
                         <p class="text-sm text-secondary mb-4">Pace vs. HR over 30 days. Validating Zone 2 base building.</p>
                         <div style="position: relative; height: 200px; width: 100%;">
-                            <canvas id="decouplingChart"></canvas>
+                            <canvas id="decouplingChart" role="img" aria-label="Aerobic Decoupling chart"></canvas>
                         </div>
                     </div>
 
@@ -1073,13 +1077,13 @@
                         <div class="glass-card bento-item">
                             <h2><i data-lucide="pie-chart"></i> Cardio Modality</h2>
                             <div style="position: relative; height: 160px; width: 100%;">
-                                <canvas id="modalityChart"></canvas>
+                                <canvas id="modalityChart" role="img" aria-label="Cardio Modality distribution chart"></canvas>
                             </div>
                         </div>
                         <div class="glass-card bento-item">
                             <h2><i data-lucide="dumbbell"></i> Heavy Lifts</h2>
                             <div style="position: relative; height: 160px; width: 100%;">
-                                <canvas id="liftChart"></canvas>
+                                <canvas id="liftChart" role="img" aria-label="Heavy Lifts progress chart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -1088,7 +1092,7 @@
                         <h2><i data-lucide="alert-octagon"></i> Volume vs. Joint Pain</h2>
                         <p class="text-sm text-secondary mb-4">Finding the MRV limit before tendons flare up.</p>
                         <div style="position: relative; height: 200px; width: 100%;">
-                            <canvas id="volumePainChart"></canvas>
+                            <canvas id="volumePainChart" role="img" aria-label="Volume vs Joint Pain chart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -1099,7 +1103,7 @@
                         <h2><i data-lucide="flame"></i> Metabolic Adaptation</h2>
                         <p class="text-sm text-secondary mb-4">Weight vs. Calculated TDEE over 90 days.</p>
                         <div style="position: relative; height: 200px; width: 100%;">
-                            <canvas id="tdeeChart"></canvas>
+                            <canvas id="tdeeChart" role="img" aria-label="TDEE and weight chart"></canvas>
                         </div>
                     </div>
                     
@@ -1107,7 +1111,7 @@
                         <h2><i data-lucide="pizza"></i> Macro Nutrition Stack</h2>
                         <p class="text-sm text-secondary mb-4">Trailing 7-day intake of Carbs, Protein, and Fats.</p>
                         <div style="position: relative; height: 220px; width: 100%;">
-                            <canvas id="macroChart"></canvas>
+                            <canvas id="macroChart" role="img" aria-label="Macro Nutrition chart"></canvas>
                         </div>
                     </div>
 
@@ -1115,7 +1119,7 @@
                         <h2><i data-lucide="scale"></i> Body Composition Progress</h2>
                         <p class="text-sm text-secondary mb-4">Weight, Body Fat %, and Muscle Mass % tracked over time.</p>
                         <div style="position: relative; height: 250px; width: 100%;">
-                            <canvas id="inbodyChart"></canvas>
+                            <canvas id="inbodyChart" role="img" aria-label="Body Composition chart"></canvas>
                         </div>
                     </div>
 
@@ -1123,7 +1127,7 @@
                         <h2><i data-lucide="zap"></i> Adaptation Velocity</h2>
                         <p class="text-sm text-secondary mb-4">Body fat % rate-of-change (7-day regression). Flatline = metabolic stall signal.</p>
                         <div style="position: relative; height: 220px; width: 100%;">
-                            <canvas id="adaptationVelocityChart"></canvas>
+                            <canvas id="adaptationVelocityChart" role="img" aria-label="Adaptation Velocity chart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -1132,7 +1136,7 @@
                     <h2><i data-lucide="calendar"></i> Historical Logs</h2>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Select Date</label>
+                            <label for="history-date-picker">Select Date</label>
                             <input type="date" id="history-date-picker">
                         </div>
                     </div>
@@ -1143,10 +1147,11 @@
             </section>
 
             <!-- Library Tab -->
-            <section id="view-library" class="view">
+            <section id="view-library" class="view" role="tabpanel" aria-labelledby="tab-library">
                 <!-- Search Bar -->
                 <div class="search-container">
                     <span class="search-icon"><i data-lucide="search"></i></span>
+                    <label for="library-search" class="sr-only">Search library</label>
                     <input type="text" id="library-search" class="search-input" placeholder="Search concepts, playbooks, rules...">
                 </div>
 
@@ -1734,7 +1739,7 @@
             </section>
 
             <!-- Fueling Simulator Tab -->
-            <section id="view-fueling" class="view">
+            <section id="view-fueling" class="view" role="tabpanel" aria-labelledby="tab-fueling">
                 <div class="glass-card">
                     <h2 class="mb-4">⛽ Race Fueling Simulator</h2>
                     <p class="text-sm text-secondary mb-4">Practice your race-day gut protocol in training. Marathons are won at 60-90g/hr.</p>
@@ -1743,19 +1748,19 @@
                         <div class="sim-inputs">
                             <div class="form-grid">
                                 <div class="input-group">
-                                    <label>Event Duration (hours)</label>
+                                    <label for="sim-duration">Event Duration (hours)</label>
                                     <input type="number" id="sim-duration" value="4" step="0.5" min="1" max="24">
                                 </div>
                                 <div class="input-group">
-                                    <label>Target Intensity (RPE) <span id="simRpeVal" class="pill" style="padding:0.2rem 0.5rem;font-size:0.7rem;">6</span></label>
+                                    <label for="sim-rpe">Target Intensity (RPE) <span id="simRpeVal" class="pill" style="padding:0.2rem 0.5rem;font-size:0.7rem;">6</span></label>
                                     <input type="range" id="sim-rpe" min="1" max="10" value="6" oninput="document.getElementById('simRpeVal').textContent = this.value">
                                 </div>
                                 <div class="input-group">
-                                    <label>Your Weight (kg)</label>
+                                    <label for="sim-weight">Your Weight (kg)</label>
                                     <input type="number" id="sim-weight" value="78" step="0.1">
                                 </div>
                                 <div class="input-group">
-                                    <label>Ambient Temp (°C)</label>
+                                    <label for="sim-temp">Ambient Temp (°C)</label>
                                     <input type="number" id="sim-temp" value="25">
                                 </div>
                                 <button class="btn btn-primary" onclick="runFuelingSim()" style="margin-top:8px;">Calculate Protocol</button>
@@ -1778,11 +1783,11 @@
             </section>
 
             <!-- Settings Tab -->
-            <section id="view-settings" class="view">
+            <section id="view-settings" class="view" role="tabpanel" aria-labelledby="tab-settings">
                 <div class="glass-card">
                     <h2 class="mb-4">⚙️ Periodization Engine</h2>
                     <div class="input-group">
-                        <label>Current Macrocycle Block</label>
+                        <label for="settings-macrocycle">Current Macrocycle Block</label>
                         <input type="hidden" id="settings-macrocycle" value="STRENGTH">
                         <div class="sub-nav-pills form-pills" data-target-id="settings-macrocycle" style="margin-top:0.5rem; overflow-x:auto;">
                             <button class="pill" data-val="HYPERTROPHY">Hypertrophy</button>
@@ -1822,7 +1827,7 @@
                     <p class="text-sm text-secondary mb-4">Auto-fetches temperature & humidity for WBGT thermal shield. Uses Alexandria, Egypt coordinates.</p>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>OpenWeatherMap API Key</label>
+                            <label for="settings-weather-key">OpenWeatherMap API Key</label>
                             <input type="password" id="settings-weather-key" class="w-full" placeholder="Enter your API key">
                         </div>
                         <button class="btn btn-primary" id="btn-save-weather-key">Save Weather Key</button>
@@ -1856,12 +1861,12 @@
                         <summary class="text-sm" style="cursor:pointer;color:var(--text-secondary)">+ Add New Gear</summary>
                         <div class="form-grid mt-2">
                             <div class="input-group">
-                                <label>Name</label>
+                                <label for="gear-name">Name</label>
                                 <input type="text" id="gear-name" placeholder="e.g. Nike Pegasus 41">
                             </div>
                             <div class="flex-row" style="gap:0.5rem">
                                 <div class="input-group flex-1">
-                                    <label>Type</label>
+                                    <label for="gear-type">Type</label>
                                     <select id="gear-type">
                                         <option value="shoe">Shoe</option>
                                         <option value="bike">Bike</option>
@@ -1871,7 +1876,7 @@
                                     </select>
                                 </div>
                                 <div class="input-group flex-1">
-                                    <label>Life (km)</label>
+                                    <label for="gear-life-km">Life (km)</label>
                                     <input type="number" id="gear-life-km" placeholder="800" step="1">
                                 </div>
                             </div>
@@ -1888,22 +1893,22 @@
                         <summary class="text-sm" style="cursor:pointer;color:var(--text-secondary)">+ Add Race</summary>
                         <div class="form-grid mt-2">
                             <div class="input-group">
-                                <label>Race Name</label>
+                                <label for="race-name">Race Name</label>
                                 <input type="text" id="race-name" placeholder="e.g. Alexandria Marathon 2026">
                             </div>
                             <div class="flex-row" style="gap:0.5rem">
                                 <div class="input-group flex-1">
-                                    <label>Date</label>
+                                    <label for="race-date">Date</label>
                                     <input type="date" id="race-date">
                                 </div>
                                 <div class="input-group flex-1">
-                                    <label>Distance (km)</label>
+                                    <label for="race-distance">Distance (km)</label>
                                     <input type="number" id="race-distance" step="0.1">
                                 </div>
                             </div>
                             <div class="flex-row" style="gap:0.5rem">
                                 <div class="input-group flex-1">
-                                    <label>Type</label>
+                                    <label for="race-type">Type</label>
                                     <select id="race-type">
                                         <option value="run">Run</option>
                                         <option value="triathlon">Triathlon</option>
@@ -1913,7 +1918,7 @@
                                     </select>
                                 </div>
                                 <div class="input-group flex-1">
-                                    <label>Priority</label>
+                                    <label for="race-priority">Priority</label>
                                     <select id="race-priority">
                                         <option value="A">A (Peak)</option>
                                         <option value="B">B (Tune-up)</option>
@@ -1935,11 +1940,11 @@
                         <div class="form-grid mt-2">
                             <div class="flex-row" style="gap:0.5rem">
                                 <div class="input-group flex-1">
-                                    <label>Metric Name</label>
+                                    <label for="cm-name">Metric Name</label>
                                     <input type="text" id="cm-name" placeholder="e.g. Grip Strength">
                                 </div>
                                 <div class="input-group" style="min-width:100px">
-                                    <label>Type</label>
+                                    <label for="cm-type">Type</label>
                                     <select id="cm-type">
                                         <option value="number">Number</option>
                                         <option value="scale">Scale (1-10)</option>
@@ -1950,7 +1955,7 @@
                             </div>
                             <div class="flex-row" style="gap:0.5rem">
                                 <div class="input-group flex-1">
-                                    <label>Unit (optional)</label>
+                                    <label for="cm-unit">Unit (optional)</label>
                                     <input type="text" id="cm-unit" placeholder="kg, sec, reps...">
                                 </div>
                                 <div class="input-group" style="min-width:100px">
@@ -1968,11 +1973,11 @@
                     <div class="form-grid">
                         <div class="flex-row" style="gap:0.5rem">
                             <div class="input-group flex-1">
-                                <label>Cycle Day</label>
+                                <label for="hormone-cycle-day">Cycle Day</label>
                                 <input type="number" id="hormone-cycle-day" min="1" max="45" placeholder="Day">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Phase</label>
+                                <label for="hormone-phase">Phase</label>
                                 <select id="hormone-phase">
                                     <option value="">--</option>
                                     <option value="menstrual">Menstrual</option>
@@ -1984,17 +1989,17 @@
                         </div>
                         <div class="flex-row" style="gap:0.5rem">
                             <div class="input-group flex-1">
-                                <label>Basal Temp (°C)</label>
+                                <label for="hormone-temp">Basal Temp (°C)</label>
                                 <input type="number" id="hormone-temp" step="0.01" placeholder="36.5">
                             </div>
                             <div class="input-group flex-1">
-                                <label>Energy (1-5)</label>
+                                <label for="hormone-energy">Energy (1-5)</label>
                                 <input type="number" id="hormone-energy" min="1" max="5" placeholder="3">
                             </div>
                         </div>
                         <div class="flex-row" style="gap:0.5rem">
                             <div class="input-group flex-1">
-                                <label>Cramps (0-10)</label>
+                                <label for="hormone-cramps">Cramps (0-10)</label>
                                 <input type="number" id="hormone-cramps" min="0" max="10" step="0.5" placeholder="0">
                             </div>
                             <div class="input-group flex-1">
@@ -2004,7 +2009,7 @@
                             </div>
                         </div>
                         <div class="input-group">
-                            <label>Notes</label>
+                            <label for="hormone-notes">Notes</label>
                             <input type="text" id="hormone-notes" placeholder="Optional notes...">
                         </div>
                         <button class="btn btn-primary btn-sm w-full" id="btn-save-hormone">Save Today's Entry</button>
@@ -2017,7 +2022,7 @@
                     <div id="photo-timeline" class="photo-timeline"></div>
                     <div class="form-grid mt-3">
                         <div class="input-group">
-                            <label>Photo Type</label>
+                            <label for="photo-type">Photo Type</label>
                             <select id="photo-type">
                                 <option value="front">Front</option>
                                 <option value="back">Back</option>
@@ -2026,7 +2031,7 @@
                             </select>
                         </div>
                         <div class="input-group">
-                            <label>Choose Photo</label>
+                            <label for="photo-file">Choose Photo</label>
                             <input type="file" id="photo-file" accept="image/*" capture="environment">
                         </div>
                         <button class="btn btn-primary btn-sm w-full" id="btn-upload-photo">Save Photo</button>
@@ -2041,22 +2046,22 @@
                         <summary class="text-sm" style="cursor:pointer;color:var(--text-secondary)">+ Create Training Plan</summary>
                         <div class="form-grid mt-2">
                             <div class="input-group">
-                                <label>Plan Name</label>
+                                <label for="tp-name">Plan Name</label>
                                 <input type="text" id="tp-name" placeholder="e.g. 12-Week Base Builder">
                             </div>
                             <div class="flex-row" style="gap:0.5rem">
                                 <div class="input-group flex-1">
-                                    <label>Start Date</label>
+                                    <label for="tp-start">Start Date</label>
                                     <input type="date" id="tp-start">
                                 </div>
                                 <div class="input-group flex-1">
-                                    <label>End Date</label>
+                                    <label for="tp-end">End Date</label>
                                     <input type="date" id="tp-end">
                                 </div>
                             </div>
                             <div class="flex-row" style="gap:0.5rem">
                                 <div class="input-group flex-1">
-                                    <label>Phase</label>
+                                    <label for="tp-phase">Phase</label>
                                     <select id="tp-phase">
                                         <option value="base">Base</option>
                                         <option value="build">Build</option>
@@ -2065,7 +2070,7 @@
                                     </select>
                                 </div>
                                 <div class="input-group flex-1">
-                                    <label>Target Race</label>
+                                    <label for="tp-race">Target Race</label>
                                     <select id="tp-race"><option value="">None</option></select>
                                 </div>
                             </div>
@@ -2086,32 +2091,32 @@
             </section>
         </main>
 
-        <nav class="bottom-nav glass-nav">
-            <button class="nav-item active" data-target="view-dashboard">
+        <nav class="bottom-nav glass-nav" role="tablist" aria-label="Main navigation">
+            <button class="nav-item active" data-target="view-dashboard" role="tab" aria-selected="true" aria-controls="view-dashboard" id="tab-dashboard">
                 <span class="icon"><i data-lucide="layout-dashboard"></i></span>
                 <span class="label">Cockpit</span>
             </button>
-            <button class="nav-item" data-target="view-log">
+            <button class="nav-item" data-target="view-log" role="tab" aria-selected="false" aria-controls="view-log" id="tab-log">
                 <span class="icon"><i data-lucide="pen-tool"></i></span>
                 <span class="label">Log</span>
             </button>
-            <button class="nav-item" data-target="view-strava">
+            <button class="nav-item" data-target="view-strava" role="tab" aria-selected="false" aria-controls="view-strava" id="tab-strava">
                 <span class="icon"><i data-lucide="refresh-cw"></i></span>
                 <span class="label">Strava</span>
             </button>
-            <button class="nav-item" data-target="view-progress">
+            <button class="nav-item" data-target="view-progress" role="tab" aria-selected="false" aria-controls="view-progress" id="tab-progress">
                 <span class="icon"><i data-lucide="activity"></i></span>
                 <span class="label">Data</span>
             </button>
-            <button class="nav-item" data-target="view-library">
+            <button class="nav-item" data-target="view-library" role="tab" aria-selected="false" aria-controls="view-library" id="tab-library">
                 <span class="icon"><i data-lucide="book-open"></i></span>
                 <span class="label">Library</span>
             </button>
-            <button class="nav-item" data-target="view-fueling">
+            <button class="nav-item" data-target="view-fueling" role="tab" aria-selected="false" aria-controls="view-fueling" id="tab-fueling">
                 <span class="icon"><i data-lucide="fuel"></i></span>
                 <span class="label">Fuel</span>
             </button>
-            <button class="nav-item" data-target="view-settings">
+            <button class="nav-item" data-target="view-settings" role="tab" aria-selected="false" aria-controls="view-settings" id="tab-settings">
                 <span class="icon"><i data-lucide="settings"></i></span>
                 <span class="label">Settings</span>
             </button>
@@ -2119,24 +2124,24 @@
     </div>
 
     <!-- Biomarker Inline Modal -->
-    <div id="biomarker-modal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;">
+    <div id="biomarker-modal" role="dialog" aria-modal="true" aria-labelledby="modal-bio-heading" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;">
         <div class="glass-card" style="width:min(90vw,440px);margin:auto;max-height:90vh;overflow-y:auto;">
-            <h2 class="mb-4">🩸 Log Biomarker</h2>
+            <h2 id="modal-bio-heading" class="mb-4">🩸 Log Biomarker</h2>
             <div class="form-grid">
                 <div class="input-group">
-                    <label>Testosterone (ng/dL)</label>
+                    <label for="modal-bio-test">Testosterone (ng/dL)</label>
                     <input type="number" id="modal-bio-test" step="1">
                 </div>
                 <div class="input-group">
-                    <label>Cortisol AM (ug/dL)</label>
+                    <label for="modal-bio-cortisol">Cortisol AM (ug/dL)</label>
                     <input type="number" id="modal-bio-cortisol" step="0.1">
                 </div>
                 <div class="input-group">
-                    <label>hs-CRP (mg/L)</label>
+                    <label for="modal-bio-hscrp">hs-CRP (mg/L)</label>
                     <input type="number" id="modal-bio-hscrp" step="0.1">
                 </div>
                 <div class="input-group">
-                    <label>Ferritin (ng/mL)</label>
+                    <label for="modal-bio-ferritin">Ferritin (ng/mL)</label>
                     <input type="number" id="modal-bio-ferritin" step="1">
                 </div>
                 <div class="flex-row mt-2" style="gap:8px;">
@@ -2148,12 +2153,25 @@
     </div>
 
     <!-- Modals or Overlays -->
-    <div id="toast" class="toast">Saved</div>
+    <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">Saved</div>
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>lucide.createIcons();</script>
-    <script src="app.js?v=26"></script>
+    <script>
+        window._chartLoaded = false;
+        function loadChartJS() {
+            if (window._chartLoaded) return Promise.resolve();
+            window._chartLoaded = true;
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="https://unpkg.com/lucide@latest" defer onload="lucide.createIcons()"></script>
+    <script src="app.js?v=27" defer></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js').then(reg => {
@@ -2161,7 +2179,7 @@
                     const newWorker = reg.installing;
                     newWorker.onstatechange = () => {
                         if (newWorker.state === 'activated') {
-                            console.log('SW v26 activated.');
+                            console.log('SW v27 activated.');
                         }
                     };
                 };

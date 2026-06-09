@@ -851,9 +851,10 @@ function initNavigation() {
     const views = document.querySelectorAll('.view');
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            navButtons.forEach(b => b.classList.remove('active'));
+            navButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
             views.forEach(v => v.classList.remove('active'));
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
             const target = document.getElementById(btn.dataset.target);
             if(target) target.classList.add('active');
             
@@ -929,6 +930,8 @@ function initNavigation() {
 
 // --- CORE REFRESH ---
 function refreshAllViews() {
+    const skeleton = document.getElementById('loading-skeleton');
+    if (skeleton) skeleton.remove();
     updateHubDashboard();
     updateLogForm();
     renderStravaInbox();
@@ -2109,7 +2112,11 @@ function renderCockpit() {
     renderSparklines();
 }
 
-function renderSparklines() {
+async function renderSparklines() {
+    if (typeof Chart === 'undefined') {
+        await loadChartJS();
+    }
+
     const ids = ['acwr','wbgt','tdee','fatigue'];
     const dates = Object.keys(state.logs).sort();
     const last7 = dates.slice(-7);
@@ -3218,6 +3225,9 @@ function setupSettingsHandlers() {
         bioModal.addEventListener('click', (e) => {
             if (e.target === bioModal) closeModal('biomarker-modal');
         });
+        bioModal.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal('biomarker-modal');
+        });
         bioModal.dataset.bound = 'true';
     }
 
@@ -4292,6 +4302,9 @@ function updateJointHeatmap() {
         el.style.borderColor = '#555';
         el.style.borderWidth = '2px';
         el.removeAttribute('title');
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('aria-label', `${el.dataset.loc}: no pain data`);
     });
 
     // Aggregate max pain per location over last 14 days
@@ -4329,6 +4342,7 @@ function updateJointHeatmap() {
         el.style.borderColor = color;
         el.style.boxShadow = `0 0 10px ${color}`;
         el.setAttribute('title', `${loc}: ${pain}/10 pain (14-day max)`);
+        el.setAttribute('aria-label', `${loc}: pain level ${pain} out of 10 (14-day max)`);
     });
 }
 
@@ -4711,10 +4725,14 @@ function renderAllCharts() {
     renderNext();
 }
 
-function renderChart(id, type, data, options = {}) {
+async function renderChart(id, type, data, options = {}) {
     const canvas = document.getElementById(id);
     if(!canvas) return;
     if(charts[id]) charts[id].destroy();
+    
+    if (typeof Chart === 'undefined') {
+        await loadChartJS();
+    }
     
     const ctx = canvas.getContext('2d');
     
@@ -4812,21 +4830,23 @@ function bindLibrary() {
 
     // 3. Card Expand Accordion
     conceptCards.forEach(card => {
-        card.addEventListener('click', (e) => {
-            // Prevent close/open toggle when interacting with tables or links inside the details
-            if (e.target.closest('table') || e.target.closest('a') || e.target.closest('button')) {
-                return;
-            }
-            
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-expanded', 'false');
+        function toggleCard(e) {
+            if (e.target.closest('table') || e.target.closest('a') || e.target.closest('button')) return;
             const isExpanded = card.classList.contains('expanded');
             card.classList.toggle('expanded');
-            
-            // Smooth scroll into view
+            card.setAttribute('aria-expanded', String(!isExpanded));
             if (!isExpanded) {
                 setTimeout(() => {
                     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }, 200);
             }
+        }
+        card.addEventListener('click', toggleCard);
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCard(e); }
         });
     });
 

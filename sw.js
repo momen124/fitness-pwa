@@ -1,9 +1,9 @@
-const CACHE_NAME = 'fitness-pwa-v26';
+const CACHE_NAME = 'fitness-pwa-v27';
 const ASSETS_TO_CACHE = [
-    './?v=26',
-    './index.html?v=26',
-    './styles.css?v=26',
-    './app.js?v=26',
+    './?v=27',
+    './index.html?v=27',
+    './styles.css?v=27',
+    './app.js?v=27',
     './manifest.json',
     './icon-192.png',
     './icon-512.png',
