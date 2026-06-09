@@ -534,18 +534,45 @@ async function loadCloudSettings() {
     } catch (e) { console.warn('Supplement cloud pull failed', e); }
 
     try {
-        const { data: planRows } = await supabaseClient.from('training_plans').select('*').eq('user_id', uid).eq('is_active', true);
+        const { data: planRows } = await supabaseClient.from('training_plans').select('*').eq('user_id', uid);
         if (planRows && planRows.length > 0) {
             const local = getTrainingPlanStore();
-            const localNames = new Set(local.map(p => p.name));
+            const localMap = new Map(local.map(p => [p.name, p]));
             let changed = false;
             for (const p of planRows) {
-                if (!localNames.has(p.name) && p.plan_data) {
-                    local.push(p.plan_data);
+                const localP = localMap.get(p.name);
+                const serverTime = new Date(p.updated_at).getTime();
+                const localTime = localP?.updatedAt ? new Date(localP.updatedAt).getTime() : 0;
+                if (!localP || serverTime > localTime) {
+                    const mapped = {
+                        id: localP?.id || p.name.replace(/[^a-z0-9]/gi, '') + '_' + p.id.slice(0, 6),
+                        name: p.name,
+                        phase: p.phase,
+                        startDate: p.start_date,
+                        endDate: p.end_date,
+                        weeklyStructure: p.weekly_structure,
+                        targetRaceId: p.target_race_id,
+                        notes: p.notes,
+                        active: p.active,
+                        updatedAt: p.updated_at
+                    };
+                    const idx = localP ? local.indexOf(localP) : -1;
+                    if (idx >= 0) local[idx] = mapped;
+                    else local.push(mapped);
                     changed = true;
                 }
             }
-            if (changed) { saveTrainingPlanStore(local); renderTrainingPlans(); }
+            const serverNames = new Set(planRows.map(p => p.name));
+            for (let i = local.length - 1; i >= 0; i--) {
+                if (!serverNames.has(local[i].name)) {
+                    local.splice(i, 1);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                localStorage.setItem('n1_training_plans', JSON.stringify(local));
+                renderTrainingPlans();
+            }
         }
     } catch (e) { console.warn('Training plan cloud pull failed', e); }
 
@@ -2592,17 +2619,68 @@ function getTrainingPlanStore() {
     return saved ? JSON.parse(saved) : [];
 }
 
-function saveTrainingPlanStore(plans) {
+async function saveTrainingPlanStore(plans) {
     localStorage.setItem('n1_training_plans', JSON.stringify(plans));
     if (supabaseClient && !isGuest()) {
         const uid = getUserId();
-        Promise.all(plans.filter(p => p.active).map(p =>
-            supabaseClient.from('training_plans').upsert({
-                user_id: uid, name: p.name || 'Weekly Plan', phase: p.phase || 'hypertrophy',
-                is_active: true, plan_data: p
-            }, { onConflict: 'user_id,name' })
-        )).catch(e => console.warn('Training plan cloud sync failed', e));
+        for (const p of plans) {
+            try {
+                const res = await supabaseClient.functions.invoke('save-daily-log', {
+                    method: 'POST',
+                    headers: { 'x-user-id': uid },
+                    body: {
+                        userId: uid,
+                        logDate: getTodayKey(),
+                        data: {},
+                        planAction: 'upsert-plan',
+                        plan: {
+                            name: p.name || 'Weekly Plan',
+                            phase: p.phase || 'base',
+                            startDate: p.startDate,
+                            endDate: p.endDate,
+                            weeklyStructure: p.weeklyStructure,
+                            targetRaceId: p.targetRaceId || null,
+                            notes: p.notes || null,
+                            active: p.active,
+                            updatedAt: p.updatedAt || new Date().toISOString()
+                        }
+                    }
+                });
+                if (res.data?.results?.plan_action === 'conflict') {
+                    showToast(`Conflict on "${p.name}" — server version is newer. Pulling latest.`, 5000);
+                    await pullTrainingPlans();
+                }
+            } catch (e) {
+                console.warn('Training plan cloud sync failed for', p.name, e);
+            }
+        }
     }
+}
+
+async function pullTrainingPlans() {
+    if (!supabaseClient || isGuest()) return;
+    const uid = getUserId();
+    try {
+        const { data: planRows } = await supabaseClient.from('training_plans')
+            .select('*')
+            .eq('user_id', uid);
+        if (planRows && planRows.length > 0) {
+            const plans = planRows.map(p => ({
+                id: p.name.replace(/[^a-z0-9]/gi, '') + '_' + p.id.slice(0, 6),
+                name: p.name,
+                phase: p.phase,
+                startDate: p.start_date,
+                endDate: p.end_date,
+                weeklyStructure: p.weekly_structure,
+                targetRaceId: p.target_race_id,
+                notes: p.notes,
+                active: p.active,
+                updatedAt: p.updated_at
+            }));
+            localStorage.setItem('n1_training_plans', JSON.stringify(plans));
+            renderTrainingPlans();
+        }
+    } catch (e) { console.warn('Training plan pull failed', e); }
 }
 
 function renderTrainingPlans() {
@@ -2610,25 +2688,51 @@ function renderTrainingPlans() {
     if (!container) return;
     const plans = getTrainingPlanStore();
     const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    if (plans.length === 0) {
+    const allPlans = plans;
+    const activePlans = plans.filter(p => p.active);
+    const inactivePlans = plans.filter(p => !p.active);
+
+    if (allPlans.length === 0) {
         container.innerHTML = '<div class="text-sm text-secondary">No training plans yet.</div>';
         return;
     }
-    container.innerHTML = plans.filter(p => p.active).map(p => {
-        const weekHtml = days.map((d, i) => {
-            const dayPlan = (p.weeklyStructure || {})[i] || { type: 'rest', desc: 'Rest' };
-            const cls = dayPlan.type === 'cardio' ? 'cardio' : dayPlan.type === 'strength' ? 'strength' : dayPlan.type === 'mixed' ? 'mixed' : 'rest';
-            return `<div class="tp-day ${cls}"><div class="tp-day-header">${d}</div>${dayPlan.desc}</div>`;
-        }).join('');
-        return `<div class="glass-card mt-2" style="padding:0.8rem">
-            <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-                <div><strong>${p.name}</strong> <span class="text-sm text-secondary">${p.phase} phase</span></div>
-                <button class="btn-sm" onclick="deactivatePlan('${p.id}')">Stop</button>
-            </div>
-            <div class="text-sm text-secondary mb-2">${p.startDate} → ${p.endDate}</div>
-            <div class="tp-week">${weekHtml}</div>
-        </div>`;
+
+    let html = '';
+    if (activePlans.length > 0) {
+        html += '<div class="text-sm mb-1" style="color:var(--accent)">Active Plans</div>';
+        html += activePlans.map(p => renderPlanCard(p, days)).join('');
+    }
+    if (inactivePlans.length > 0) {
+        html += '<details class="mt-3"><summary class="text-sm" style="cursor:pointer;color:var(--text-secondary)">Inactive Plans (' + inactivePlans.length + ')</summary>';
+        html += inactivePlans.map(p => renderPlanCard(p, days)).join('');
+        html += '</details>';
+    }
+    container.innerHTML = html;
+}
+
+function renderPlanCard(p, days) {
+    const weekHtml = days.map((d, i) => {
+        const dayPlan = (p.weeklyStructure || {})[i] || { type: 'rest', desc: 'Rest' };
+        const cls = dayPlan.type === 'cardio' ? 'cardio' : dayPlan.type === 'strength' ? 'strength' : dayPlan.type === 'mixed' ? 'mixed' : 'rest';
+        return `<div class="tp-day ${cls}"><div class="tp-day-header">${d}</div>${dayPlan.desc}</div>`;
     }).join('');
+    const escId = p.id.replace(/'/g, "\\'");
+    const escName = (p.name || '').replace(/'/g, "\\'");
+    return `<div class="glass-card mt-2" style="padding:0.8rem">
+        <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+            <div><strong>${p.name}</strong> <span class="text-sm text-secondary">${p.phase} phase${p.active ? '' : ' (inactive)'}</span></div>
+            <div class="flex-row" style="gap:0.3rem">
+                <button class="btn-sm" onclick="editPlan('${escId}')" title="Edit">✏️</button>
+                ${p.active
+                    ? `<button class="btn-sm" onclick="deactivatePlan('${escId}')">Stop</button>`
+                    : `<button class="btn-sm" onclick="reactivatePlan('${escId}')">Resume</button>`
+                }
+                <button class="btn-sm btn-danger" onclick="deletePlan('${escId}','${escName}')">🗑</button>
+            </div>
+        </div>
+        <div class="text-sm text-secondary mb-2">${p.startDate || '?'} → ${p.endDate || '?'}</div>
+        <div class="tp-week">${weekHtml}</div>
+    </div>`;
 }
 
 function createTrainingPlan() {
@@ -2636,6 +2740,7 @@ function createTrainingPlan() {
     const startDate = document.getElementById('tp-start').value;
     const endDate = document.getElementById('tp-end').value;
     const phase = document.getElementById('tp-phase').value;
+    const raceId = document.getElementById('tp-race').value;
     if (!name || !startDate || !endDate) return;
     const plans = getTrainingPlanStore();
     const defaultWeek = {
@@ -2651,7 +2756,9 @@ function createTrainingPlan() {
         id: Date.now().toString(36),
         name, startDate, endDate, phase,
         weeklyStructure: defaultWeek,
-        active: true
+        targetRaceId: raceId || null,
+        active: true,
+        updatedAt: new Date().toISOString()
     });
     saveTrainingPlanStore(plans);
     document.getElementById('tp-name').value = '';
@@ -2659,13 +2766,152 @@ function createTrainingPlan() {
     showToast('Training plan created.');
 }
 
-function deactivatePlan(id) {
+async function deactivatePlan(id) {
     const plans = getTrainingPlanStore();
     const plan = plans.find(p => p.id === id);
-    if (plan) plan.active = false;
-    saveTrainingPlanStore(plans);
+    if (plan) {
+        plan.active = false;
+        plan.updatedAt = new Date().toISOString();
+    }
+    localStorage.setItem('n1_training_plans', JSON.stringify(plans));
     renderTrainingPlans();
+    if (supabaseClient && !isGuest()) {
+        try {
+            await supabaseClient.functions.invoke('save-daily-log', {
+                method: 'POST',
+                headers: { 'x-user-id': getUserId() },
+                body: { userId: getUserId(), logDate: getTodayKey(), data: {}, planAction: 'deactivate-plan', planName: plan.name }
+            });
+        } catch (e) { console.warn('Deactivate plan cloud sync failed', e); }
+    }
     showToast('Plan deactivated.');
+}
+
+async function reactivatePlan(id) {
+    const plans = getTrainingPlanStore();
+    const plan = plans.find(p => p.id === id);
+    if (plan) {
+        plan.active = true;
+        plan.updatedAt = new Date().toISOString();
+    }
+    await saveTrainingPlanStore(plans);
+    renderTrainingPlans();
+    showToast('Plan reactivated.');
+}
+
+async function deletePlan(id, name) {
+    if (!confirm(`Delete "${name}" permanently?`)) return;
+    let plans = getTrainingPlanStore();
+    plans = plans.filter(p => p.id !== id);
+    localStorage.setItem('n1_training_plans', JSON.stringify(plans));
+    renderTrainingPlans();
+    if (supabaseClient && !isGuest()) {
+        try {
+            await supabaseClient.functions.invoke('save-daily-log', {
+                method: 'POST',
+                headers: { 'x-user-id': getUserId() },
+                body: { userId: getUserId(), logDate: getTodayKey(), data: {}, planAction: 'delete-plan', planName: name }
+            });
+        } catch (e) { console.warn('Delete plan cloud sync failed', e); }
+    }
+    showToast('Plan deleted.');
+}
+
+function editPlan(id) {
+    const plans = getTrainingPlanStore();
+    const plan = plans.find(p => p.id === id);
+    if (!plan) return;
+    const container = document.getElementById('training-plan-view');
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const weekEditHtml = days.map((d, i) => {
+        const dayPlan = (plan.weeklyStructure || {})[i] || { type: 'rest', desc: 'Rest' };
+        return `<div class="flex-row" style="gap:0.3rem;align-items:center;margin-bottom:0.3rem">
+            <span style="width:2.5rem;font-weight:600">${d}</span>
+            <select id="tp-edit-type-${i}" style="flex:0 0 100px">
+                <option value="rest" ${dayPlan.type==='rest'?'selected':''}>Rest</option>
+                <option value="strength" ${dayPlan.type==='strength'?'selected':''}>Strength</option>
+                <option value="cardio" ${dayPlan.type==='cardio'?'selected':''}>Cardio</option>
+                <option value="mixed" ${dayPlan.type==='mixed'?'selected':''}>Mixed</option>
+            </select>
+            <input id="tp-edit-desc-${i}" value="${dayPlan.desc}" style="flex:1" placeholder="Description">
+        </div>`;
+    }).join('');
+
+    const escId = plan.id.replace(/'/g, "\\'");
+    const editHtml = `<div class="glass-card mt-2" style="padding:0.8rem;border:1px solid var(--accent)">
+        <div class="text-sm mb-1" style="color:var(--accent)">Editing: ${plan.name}</div>
+        <div class="form-grid">
+            <div class="input-group">
+                <label>Plan Name</label>
+                <input id="tp-edit-name" value="${plan.name}">
+            </div>
+            <div class="flex-row" style="gap:0.5rem">
+                <div class="input-group flex-1">
+                    <label>Start</label>
+                    <input type="date" id="tp-edit-start" value="${plan.startDate}">
+                </div>
+                <div class="input-group flex-1">
+                    <label>End</label>
+                    <input type="date" id="tp-edit-end" value="${plan.endDate}">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Phase</label>
+                <select id="tp-edit-phase">
+                    <option value="base" ${plan.phase==='base'?'selected':''}>Base</option>
+                    <option value="build" ${plan.phase==='build'?'selected':''}>Build</option>
+                    <option value="peak" ${plan.phase==='peak'?'selected':''}>Peak</option>
+                    <option value="recover" ${plan.phase==='recover'?'selected':''}>Recovery</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Weekly Structure</label>
+                ${weekEditHtml}
+            </div>
+            <div class="flex-row" style="gap:0.5rem">
+                <button class="btn btn-primary btn-sm" onclick="savePlanEdit('${escId}')">Save Changes</button>
+                <button class="btn-sm" onclick="renderTrainingPlans()">Cancel</button>
+            </div>
+        </div>
+    </div>`;
+
+    const cardIndex = Array.from(container.children).findIndex(el => el.innerHTML && el.innerHTML.includes(`editPlan('${plan.id}'`));
+    if (cardIndex >= 0) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = editHtml;
+        container.children[cardIndex].replaceWith(wrapper.firstElementChild);
+    } else {
+        container.insertAdjacentHTML('afterbegin', editHtml);
+    }
+}
+
+async function savePlanEdit(id) {
+    const plans = getTrainingPlanStore();
+    const plan = plans.find(p => p.id === id);
+    if (!plan) return;
+
+    plan.name = document.getElementById('tp-edit-name').value.trim() || plan.name;
+    plan.startDate = document.getElementById('tp-edit-start').value || plan.startDate;
+    plan.endDate = document.getElementById('tp-edit-end').value || plan.endDate;
+    plan.phase = document.getElementById('tp-edit-phase').value;
+    plan.updatedAt = new Date().toISOString();
+
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    for (let i = 0; i < 7; i++) {
+        const typeEl = document.getElementById(`tp-edit-type-${i}`);
+        const descEl = document.getElementById(`tp-edit-desc-${i}`);
+        if (typeEl || descEl) {
+            if (!plan.weeklyStructure) plan.weeklyStructure = {};
+            plan.weeklyStructure[i] = {
+                type: typeEl ? typeEl.value : 'rest',
+                desc: descEl ? descEl.value : 'Rest'
+            };
+        }
+    }
+
+    await saveTrainingPlanStore(plans);
+    renderTrainingPlans();
+    showToast('Plan updated.');
 }
 
 function populateRaceDropdown() {

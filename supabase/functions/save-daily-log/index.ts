@@ -41,14 +41,15 @@ serve(async (req: Request) => {
         const logDate = payload.logDate;
         const data = payload.data || {};
 
-        if (!logDate) {
-            return new Response(JSON.stringify({ error: 'logDate is required' }), {
+        if (!logDate && !payload.planAction) {
+            return new Response(JSON.stringify({ error: 'logDate or planAction is required' }), {
                 status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
         }
 
         const results: Record<string, unknown> = {};
 
+        if (logDate) {
         // 1. Upsert daily_logs
         const { error: dlErr } = await sb.from('daily_logs').upsert({
             user_id: userId,
@@ -249,14 +250,75 @@ serve(async (req: Request) => {
             }, { onConflict: 'user_id,log_date' });
             results.mobility = 'ok';
         }
+        } // end if (logDate)
+
+        // Training plan CRUD
+        if (payload.planAction === 'upsert-plan' && payload.plan) {
+            const plan = payload.plan;
+            const { data: existing } = await sb.from('training_plans')
+                .select('id, updated_at')
+                .eq('user_id', userId)
+                .eq('name', plan.name)
+                .maybeSingle();
+
+            if (existing && plan.updatedAt) {
+                const serverTime = new Date(existing.updated_at).getTime();
+                const clientTime = new Date(plan.updatedAt).getTime();
+                if (serverTime > clientTime) {
+                    results.plan_action = 'conflict';
+                    results.server_updated_at = existing.updated_at;
+                }
+            }
+
+            if (results.plan_action !== 'conflict') {
+                const upsertData: Record<string, unknown> = {
+                    user_id: userId,
+                    name: plan.name,
+                    phase: plan.phase || 'base',
+                    start_date: plan.startDate || null,
+                    end_date: plan.endDate || null,
+                    weekly_structure: plan.weeklyStructure || {},
+                    target_race_id: plan.targetRaceId || null,
+                    notes: plan.notes || null,
+                    active: plan.active !== false,
+                };
+                if (existing) {
+                    const { error: tpErr } = await sb.from('training_plans')
+                        .update({ ...upsertData, updated_at: new Date().toISOString() })
+                        .eq('id', existing.id);
+                    results.plan_action = tpErr ? tpErr.message : 'updated';
+                } else {
+                    const { error: tpErr } = await sb.from('training_plans').insert(upsertData);
+                    results.plan_action = tpErr ? tpErr.message : 'created';
+                }
+            }
+        }
+
+        if (payload.planAction === 'delete-plan' && payload.planName) {
+            const { error: tdErr } = await sb.from('training_plans')
+                .delete()
+                .eq('user_id', userId)
+                .eq('name', payload.planName);
+            results.plan_action = tdErr ? tdErr.message : 'deleted';
+        }
+
+        if (payload.planAction === 'deactivate-plan' && payload.planName) {
+            const { error: tdErr } = await sb.from('training_plans')
+                .update({ active: false, updated_at: new Date().toISOString() })
+                .eq('user_id', userId)
+                .eq('name', payload.planName);
+            results.plan_action = tdErr ? tdErr.message : 'deactivated';
+        }
 
         // Also upsert to n1_logs for backwards compatibility (scoped per user)
+        if (logDate) {
         const compatDateId = userId === DEFAULT_USER_ID ? logDate : `${userId.slice(0, 8)}_${logDate}`;
         await sb.from('n1_logs').upsert({
             date_id: compatDateId,
             data: { ...data, _user_id: userId }
         }, { onConflict: 'date_id' });
         results.n1_logs_compat = 'ok';
+        }
 
         return new Response(JSON.stringify({ success: true, date: logDate, results }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
