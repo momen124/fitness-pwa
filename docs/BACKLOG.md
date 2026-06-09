@@ -132,12 +132,21 @@ This document tracks upcoming features, deferred tasks, and architectural upgrad
   - Show sync status indicator (online/offline/syncing) ✅
   - IndexedDB instead of localStorage for larger data capacity — not done yet.
 
-- [ ] **Performance Optimization**
-  - Lazy-load Chart.js and Supabase SDK (currently blocking render).
-  - Code-split app.js into modules.
-  - Add skeleton loading states.
+- [x] **Performance Optimization**
+  - Lazy-load Chart.js (only loads on Progress tab / sparklines) ✅
+  - Defer Supabase SDK and Lucide icons ✅
+  - Skeleton loading states (shimmer effect) ✅
+  - Code-split app.js into modules — not done yet.
 
-- [ ] **Accessibility Audit**
-  - ARIA labels on interactive elements.
-  - Keyboard navigation for checklist toggles.
-  - Screen reader support for charts (data tables fallback).
+- [x] **Accessibility Audit**
+  - WCAG viewport zoom fix (removed user-scalable=no) ✅
+  - Tab roles: tablist/tab/tabpanel on nav + views ✅
+  - Dialog semantics on biomarker modal + Escape handler ✅
+  - aria-live on toast and auth-error ✅
+  - Canvas aria-label on all 17 chart elements ✅
+  - 111 label for= attributes for programmatic association ✅
+  - sr-only labels on orphan inputs ✅
+  - Joint heatmap: role=button, tabindex, dynamic aria-label ✅
+  - Concept cards: keyboard support + aria-expanded ✅
+  - ARIA labels on interactive elements ✅
+  - Screen reader support for charts (data tables fallback) — not done yet.
