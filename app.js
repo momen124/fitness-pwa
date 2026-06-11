@@ -224,10 +224,24 @@ function isGuest() {
 function updateSyncStatus(status) {
     const el = document.getElementById('sync-status');
     if (!el) return;
-    if (status === 'synced') el.textContent = '🟢';
-    else if (status === 'syncing') el.textContent = '🟡';
-    else if (status === 'offline') el.textContent = '🔴';
-    el.title = status === 'synced' ? 'All data synced' : status === 'syncing' ? 'Syncing...' : 'Offline — changes queued';
+    if (status === 'synced') {
+        el.textContent = '🟢';
+        el.title = 'All data synced';
+        localStorage.setItem('n1_last_sync_time', new Date().toISOString());
+    }
+    else if (status === 'syncing') { el.textContent = '🟡'; el.title = 'Syncing...'; }
+    else if (status === 'offline') { el.textContent = '🔴'; el.title = 'Offline — changes queued'; }
+    else if (status === 'error') { el.textContent = '⚠️'; el.title = 'Sync error — will retry'; }
+    const settingsSyncTime = document.getElementById('settings-sync-time');
+    if (settingsSyncTime) {
+        const lastSync = localStorage.getItem('n1_last_sync_time');
+        if (lastSync) {
+            const d = new Date(lastSync);
+            settingsSyncTime.textContent = `Last sync: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+        } else {
+            settingsSyncTime.textContent = 'Last sync: never';
+        }
+    }
 }
 
 function getPendingWrites() {
@@ -268,7 +282,20 @@ async function replayPendingWrites() {
 }
 
 async function initAuth() {
-    if (!supabaseClient) return;
+    if (!supabaseClient) {
+        const guestMode = localStorage.getItem('n1_guest_mode');
+        if (guestMode === 'true') {
+            localStorage.setItem('n1_user_id', GUEST_USER_ID);
+            hideAuthOverlay();
+            return;
+        }
+        const savedUserId = localStorage.getItem('n1_user_id');
+        if (savedUserId && savedUserId !== GUEST_USER_ID) {
+            showAuthError('Cloud connection unavailable. Log in when online or continue as guest.');
+            return;
+        }
+        return;
+    }
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session && session.user) {
         currentUser = session.user;
@@ -460,6 +487,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         replayPendingWrites();
     });
     window.addEventListener('offline', () => updateSyncStatus('offline'));
+
+    // PWA install prompt
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const installBtn = document.createElement('button');
+        installBtn.className = 'badge accent';
+        installBtn.style.cssText = 'cursor:pointer;font-size:0.7rem;';
+        installBtn.textContent = '📥 Install App';
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') showToast('App installed!');
+            deferredPrompt = null;
+            installBtn.remove();
+        });
+        const header = document.querySelector('.header-actions');
+        if (header) header.appendChild(installBtn);
+    });
+
+    // SW update notification
+    if ('serviceWorker' in navigator) {
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            refreshing = true;
+            showToast('App updated — refreshing...');
+            setTimeout(() => window.location.reload(), 1500);
+        });
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                if (newWorker) {
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                            showToast('New version available — refreshing...');
+                        }
+                    });
+                }
+            });
+        }
+    }
 });
 
 async function loadData() {
@@ -714,6 +786,69 @@ async function loadCloudSettings() {
     } catch (e) { console.warn('Photo cloud pull failed', e); }
 }
 
+function validateLogForm(log) {
+    const errors = [];
+    const v = (val) => val !== '' && val !== null && val !== undefined;
+
+    if (v(log.weight)) {
+        const w = parseFloat(log.weight);
+        if (isNaN(w) || w < 30 || w > 300) errors.push('Weight must be 30–300 kg');
+    }
+    if (v(log.bodyFatPct)) {
+        const bf = parseFloat(log.bodyFatPct);
+        if (isNaN(bf) || bf < 3 || bf > 60) errors.push('Body fat must be 3–60%');
+    }
+    if (v(log.hrv)) {
+        const h = parseFloat(log.hrv);
+        if (isNaN(h) || h < 10 || h > 200) errors.push('HRV must be 10–200 ms');
+    }
+    if (v(log.restingHR)) {
+        const hr = parseFloat(log.restingHR);
+        if (isNaN(hr) || hr < 30 || hr > 120) errors.push('Resting HR must be 30–120 bpm');
+    }
+    if (v(log.sleepHrs)) {
+        const s = parseFloat(log.sleepHrs);
+        if (isNaN(s) || s < 0 || s > 24) errors.push('Sleep must be 0–24 hrs');
+    }
+    if (v(log.sleepQual)) {
+        const q = parseInt(log.sleepQual);
+        if (isNaN(q) || q < 1 || q > 5) errors.push('Sleep quality must be 1–5');
+    }
+    if (v(log.cnsFatigue)) {
+        const c = parseInt(log.cnsFatigue);
+        if (isNaN(c) || c < 1 || c > 5) errors.push('CNS fatigue must be 1–5');
+    }
+    if (v(log.injuryPain)) {
+        const p = parseFloat(log.injuryPain);
+        if (isNaN(p) || p < 0 || p > 10) errors.push('Pain must be 0–10');
+    }
+    if (v(log.soreness0to10)) {
+        const so = parseFloat(log.soreness0to10);
+        if (isNaN(so) || so < 0 || so > 10) errors.push('Soreness must be 0–10');
+    }
+    if (v(log.totalCals)) {
+        const c = parseFloat(log.totalCals);
+        if (isNaN(c) || c < 500 || c > 10000) errors.push('Calories must be 500–10,000');
+    }
+    if (v(log.proG)) {
+        const p = parseFloat(log.proG);
+        if (isNaN(p) || p < 0 || p > 500) errors.push('Protein must be 0–500g');
+    }
+    if (v(log.manualCardioDuration)) {
+        const d = parseFloat(log.manualCardioDuration);
+        if (isNaN(d) || d < 0 || d > 600) errors.push('Cardio duration must be 0–600 min');
+    }
+    if (v(log.avgHR)) {
+        const hr = parseFloat(log.avgHR);
+        if (isNaN(hr) || hr < 30 || hr > 220) errors.push('Avg HR must be 30–220 bpm');
+    }
+    if (v(log.maxHR)) {
+        const hr = parseFloat(log.maxHR);
+        if (isNaN(hr) || hr < 30 || hr > 250) errors.push('Max HR must be 30–250 bpm');
+    }
+    return errors;
+}
+
 async function saveData(dateKey = getTodayKey()) {
     await storeSet('n1_pwa_state', state);
     refreshAllViews();
@@ -962,51 +1097,80 @@ function importExternalActivities(rawActivities = [], source = 'strava', options
 }
 
 // --- NAVIGATION ---
-function initNavigation() {
+const TAB_HASH_MAP = {
+    'view-dashboard': 'cockpit',
+    'view-log': 'log',
+    'view-strava': 'strava',
+    'view-progress': 'data',
+    'view-library': 'library',
+    'view-fueling': 'fuel',
+    'view-settings': 'settings'
+};
+const HASH_TAB_MAP = {};
+for (const [viewId, hash] of Object.entries(TAB_HASH_MAP)) {
+    HASH_TAB_MAP[hash] = viewId;
+}
+
+function navigateToTab(viewId, updateHash = true) {
     const navButtons = document.querySelectorAll('.nav-item');
     const views = document.querySelectorAll('.view');
+    navButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+    views.forEach(v => v.classList.remove('active'));
+    const targetBtn = document.querySelector(`.nav-item[data-target="${viewId}"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+        targetBtn.setAttribute('aria-selected', 'true');
+    }
+    const target = document.getElementById(viewId);
+    if (target) target.classList.add('active');
+
+    if (updateHash && TAB_HASH_MAP[viewId]) {
+        history.replaceState(null, '', '#' + TAB_HASH_MAP[viewId]);
+    }
+
+    if (viewId === 'view-progress') renderAllCharts();
+    if (viewId === 'view-strava') renderStravaInbox();
+    if (viewId === 'view-settings') updateSettingsView();
+    if (viewId === 'view-fueling') {
+        const gut = getGutTrainingBaseline();
+        const gutDisplay = document.getElementById('gutHistoryDisplay');
+        if (gutDisplay) {
+            if (gut) {
+                gutDisplay.innerHTML = `
+                    <p style="margin-bottom:10px;">Based on <strong>${gut.sessions}</strong> long sessions:</p>
+                    <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">
+                        <div class="stat-box">Avg: <strong>${gut.avgPerHour.toFixed(1)}g/hr</strong></div>
+                        <div class="stat-box">Max: <strong>${gut.maxPerHour.toFixed(1)}g/hr</strong></div>
+                    </div>
+                    <p style="margin-top:12px;font-size:0.8rem;color:#666;line-height:1.4;">
+                        Your "gut limit" is the highest rate you can process without GI distress. 
+                        Race day should be 10-15% below this limit.
+                    </p>
+                `;
+            } else {
+                gutDisplay.innerHTML = `<p style="color:#666;">Log <code>intraCarbs</code> during your next 60+ minute cardio session to calibrate.</p>`;
+            }
+        }
+    }
+}
+
+function initNavigation() {
+    const navButtons = document.querySelectorAll('.nav-item');
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            navButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
-            views.forEach(v => v.classList.remove('active'));
-            btn.classList.add('active');
-            btn.setAttribute('aria-selected', 'true');
-            const target = document.getElementById(btn.dataset.target);
-            if(target) target.classList.add('active');
-            
-            if(btn.dataset.target === 'view-progress') {
-                renderAllCharts();
-            }
-            if(btn.dataset.target === 'view-strava') {
-                renderStravaInbox();
-            }
-            if(btn.dataset.target === 'view-settings') {
-                updateSettingsView();
-            }
-            if(btn.dataset.target === 'view-fueling') {
-                // Pre-populate gut history when tab opens
-                const gut = getGutTrainingBaseline();
-                const gutDisplay = document.getElementById('gutHistoryDisplay');
-                if (gutDisplay) {
-                    if (gut) {
-                        gutDisplay.innerHTML = `
-                            <p style="margin-bottom:10px;">Based on <strong>${gut.sessions}</strong> long sessions:</p>
-                            <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">
-                                <div class="stat-box">Avg: <strong>${gut.avgPerHour.toFixed(1)}g/hr</strong></div>
-                                <div class="stat-box">Max: <strong>${gut.maxPerHour.toFixed(1)}g/hr</strong></div>
-                            </div>
-                            <p style="margin-top:12px;font-size:0.8rem;color:#666;line-height:1.4;">
-                                Your "gut limit" is the highest rate you can process without GI distress. 
-                                Race day should be 10-15% below this limit.
-                            </p>
-                        `;
-                    } else {
-                        gutDisplay.innerHTML = `<p style="color:#666;">Log <code>intraCarbs</code> during your next 60+ minute cardio session to calibrate.</p>`;
-                    }
-                }
-            }
+            navigateToTab(btn.dataset.target);
         });
     });
+
+    window.addEventListener('hashchange', () => {
+        const hash = location.hash.replace('#', '');
+        const viewId = HASH_TAB_MAP[hash];
+        if (viewId) navigateToTab(viewId, false);
+    });
+
+    const hash = location.hash.replace('#', '');
+    const viewId = HASH_TAB_MAP[hash];
+    if (viewId) navigateToTab(viewId, false);
 
     const subPills = document.querySelectorAll('#view-progress .sub-nav-pills .pill');
     const chartGroups = document.querySelectorAll('#view-progress .chart-group');
@@ -3229,6 +3393,28 @@ function connectStrava() {
     const authUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(callbackUrl)}&approval_prompt=force&scope=activity:read_all`;
     window.open(authUrl, '_blank');
     showToast('Authorize Strava in the new window, then come back and Sync.');
+    let pollCount = 0;
+    const pollInterval = setInterval(async () => {
+        pollCount++;
+        if (pollCount > 15) {
+            clearInterval(pollInterval);
+            return;
+        }
+        if (!supabaseClient) return;
+        try {
+            const { data } = await supabaseClient
+                .from('strava_connections')
+                .select('athlete_id, updated_at')
+                .eq('user_id', getUserId())
+                .limit(1);
+            if (data && data.length > 0) {
+                clearInterval(pollInterval);
+                const stravaStatus = document.getElementById('strava-connection-status');
+                if (stravaStatus) stravaStatus.textContent = `Connected (Athlete ${data[0].athlete_id})`;
+                showToast('Strava connected successfully!');
+            }
+        } catch (e) { /* ignore during polling */ }
+    }, 2000);
 }
 
 function setupSettingsHandlers() {
@@ -3275,6 +3461,20 @@ function setupSettingsHandlers() {
             }
         });
         saveWeatherBtn.dataset.bound = 'true';
+    }
+
+    const hormoneToggle = document.getElementById('settings-show-hormone');
+    if (hormoneToggle && !hormoneToggle.dataset.bound) {
+        const savedHormoneVisible = localStorage.getItem('n1_show_hormone') === 'true';
+        hormoneToggle.checked = savedHormoneVisible;
+        const hormoneSection = document.getElementById('hormone-section');
+        if (hormoneSection) hormoneSection.style.display = savedHormoneVisible ? 'block' : 'none';
+        hormoneToggle.addEventListener('change', () => {
+            const visible = hormoneToggle.checked;
+            localStorage.setItem('n1_show_hormone', String(visible));
+            if (hormoneSection) hormoneSection.style.display = visible ? 'block' : 'none';
+        });
+        hormoneToggle.dataset.bound = 'true';
     }
 
     const syncNowBtn = document.getElementById('btn-sync-now');
@@ -4241,6 +4441,12 @@ function bindLogForm() {
             log.customMetrics = existing.customMetrics || {};
             
             state.logs[todayStr] = log;
+
+            const validationErrors = validateLogForm(log);
+            if (validationErrors.length > 0) {
+                showToast(validationErrors[0]);
+                return;
+            }
 
             if (log.gearId && log.manualCardioDuration) {
                 const gear = getGearStore();

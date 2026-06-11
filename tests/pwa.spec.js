@@ -449,3 +449,228 @@ test.describe('E2E: Historical Log Viewer', () => {
     expect(text).toContain('inbodyWeight');
   });
 });
+
+// =============================================
+// UNIT: Hash-based Routing
+// =============================================
+test.describe('Unit: Hash Routing', () => {
+  test('should navigate to log tab via #log hash', async ({ page }) => {
+    await page.goto('/#log');
+    await page.waitForTimeout(1000);
+    const logView = page.locator('#view-log');
+    await expect(logView).toHaveClass(/active/);
+  });
+
+  test('should navigate to settings tab via #settings hash', async ({ page }) => {
+    await page.goto('/#settings');
+    await page.waitForTimeout(1000);
+    const settingsView = page.locator('#view-settings');
+    await expect(settingsView).toHaveClass(/active/);
+  });
+
+  test('should update hash when clicking a nav tab', async ({ page }) => {
+    await page.goto('/');
+    await page.click('.nav-item[data-target="view-log"]');
+    await page.waitForTimeout(500);
+    const hash = await page.evaluate(() => window.location.hash);
+    expect(hash).toBe('#log');
+  });
+
+  test('should navigate via browser back after tab clicks', async ({ page }) => {
+    await page.goto('/');
+    await page.click('.nav-item[data-target="view-log"]');
+    await page.waitForTimeout(500);
+    await page.click('.nav-item[data-target="view-settings"]');
+    await page.waitForTimeout(500);
+    await page.goBack();
+    await page.waitForTimeout(500);
+    const hash = await page.evaluate(() => window.location.hash);
+    expect(hash).toBe('#log');
+  });
+});
+
+// =============================================
+// INTEGRATION: Auth Overlay
+// =============================================
+test.describe('Integration: Auth Gate', () => {
+  test('should show auth overlay on fresh load', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem('n1_guest_mode');
+      localStorage.removeItem('n1_user_id');
+    });
+    await page.goto('/');
+    const overlay = page.locator('#auth-overlay');
+    await expect(overlay).toBeVisible();
+  });
+
+  test('should bypass auth overlay in guest mode', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('n1_guest_mode', 'true');
+      localStorage.setItem('n1_user_id', '00000000-0000-0000-0000-000000000001');
+    });
+    await page.goto('/');
+    await page.waitForTimeout(2000);
+    const overlay = page.locator('#auth-overlay');
+    const visible = await overlay.isVisible();
+    expect(visible).toBe(false);
+  });
+});
+
+// =============================================
+// INTEGRATION: Form Validation
+// =============================================
+test.describe('Integration: Form Validation', () => {
+  test('should reject weight below 30 kg', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(2000);
+    await page.click('.nav-item[data-target="view-log"]');
+    await page.fill('#log-weight', '5');
+    await page.click('#btn-save-log');
+    const toastText = await page.locator('.toast').textContent().catch(() => '');
+    expect(toastText).toContain('Weight');
+  });
+
+  test('should reject weight above 300 kg', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(2000);
+    await page.click('.nav-item[data-target="view-log"]');
+    await page.fill('#log-weight', '500');
+    await page.click('#btn-save-log');
+    const toastText = await page.locator('.toast').textContent().catch(() => '');
+    expect(toastText).toContain('Weight');
+  });
+
+  test('should accept valid weight', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(2000);
+    await page.click('.nav-item[data-target="view-log"]');
+    await page.fill('#log-weight', '115');
+    await page.click('#btn-save-log');
+    await page.waitForTimeout(1000);
+    const saved = await page.evaluate(() => {
+      const raw = localStorage.getItem('n1_pwa_state');
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      const today = new Date().toISOString().split('T')[0];
+      return s.logs[today]?.weight;
+    });
+    expect(saved).toBe('115');
+  });
+});
+
+// =============================================
+// E2E: Export Functions
+// =============================================
+test.describe('E2E: Export', () => {
+  test('should trigger JSON backup download', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(2000);
+    await page.click('.nav-item[data-target="view-settings"]');
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.click('#btn-export-full-backup');
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toContain('n1-backup');
+    expect(download.suggestedFilename()).toContain('.json');
+  });
+
+  test('should trigger Cockpit CSV export download', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(2000);
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.click('#btn-export-csv');
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toContain('n1-export');
+    expect(download.suggestedFilename()).toContain('.csv');
+  });
+});
+
+// =============================================
+// UNIT: Privacy Section
+// =============================================
+test.describe('Unit: Privacy Notice', () => {
+  test('should show privacy section in Settings', async ({ page }) => {
+    await page.goto('/');
+    await page.click('.nav-item[data-target="view-settings"]');
+    const privacyHeading = page.locator('h2:has-text("Privacy")');
+    await expect(privacyHeading).toBeVisible();
+  });
+
+  test('should mention local storage in privacy notice', async ({ page }) => {
+    await page.goto('/');
+    await page.click('.nav-item[data-target="view-settings"]');
+    const privacySection = page.locator('#view-settings .glass-card:has(h2:text("Privacy"))');
+    const text = await privacySection.textContent();
+    expect(text).toContain('IndexedDB');
+    expect(text).toContain('Cloud sync');
+  });
+});
+
+// =============================================
+// UNIT: Hormone Tracking Toggle
+// =============================================
+test.describe('Unit: Hormone Toggle', () => {
+  test('hormone section should be hidden by default', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem('n1_show_hormone');
+    });
+    await page.goto('/');
+    await page.click('.nav-item[data-target="view-log"]');
+    const hormoneSection = page.locator('#hormone-section');
+    const visible = await hormoneSection.isVisible();
+    expect(visible).toBe(false);
+  });
+
+  test('should show hormone section when toggle is enabled', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('n1_show_hormone', 'true');
+    });
+    await page.goto('/');
+    await page.click('.nav-item[data-target="view-log"]');
+    const hormoneSection = page.locator('#hormone-section');
+    await expect(hormoneSection).toBeVisible();
+  });
+});
+
+// =============================================
+// UNIT: Service Worker Registration
+// =============================================
+test.describe('Unit: Service Worker', () => {
+  test('should register a service worker', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(3000);
+    const swRegistered = await page.evaluate(async () => {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      return regs.length > 0;
+    });
+    expect(swRegistered).toBe(true);
+  });
+
+  test('should have a valid manifest.json', async ({ page }) => {
+    const response = await page.request.get('/manifest.json');
+    expect(response.ok()).toBe(true);
+    const manifest = await response.json();
+    expect(manifest.name).toBeTruthy();
+    expect(manifest.display).toBe('standalone');
+    expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// =============================================
+// UNIT: Cloud Sync Status
+// =============================================
+test.describe('Unit: Sync Status', () => {
+  test('should show sync status indicator in header', async ({ page }) => {
+    await page.goto('/');
+    const syncStatus = page.locator('#sync-status');
+    await expect(syncStatus).toBeVisible();
+  });
+
+  test('should show last sync time in Settings', async ({ page }) => {
+    await page.goto('/');
+    await page.click('.nav-item[data-target="view-settings"]');
+    const syncTime = page.locator('#settings-sync-time');
+    await expect(syncTime).toBeVisible();
+  });
+});

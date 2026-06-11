@@ -293,15 +293,18 @@ serve(async (req: Request) => {
     const userId = req.headers.get('x-user-id') || '00000000-0000-0000-0000-000000000001';
 
     if (dailyLog.weatherTempC || dailyLog.weatherHumidity) {
-      await supabase.from('weather_snapshots').upsert({
+      await supabase.from('weather_snapshots').insert({
         user_id: userId,
-        log_date: dateKey,
-        temp_c: num(dailyLog.weatherTempC),
-        humidity: num(dailyLog.weatherHumidity),
-        wind_speed_mps: num(dailyLog.weatherWindSpeed),
+        snapshot_at: new Date().toISOString(),
+        location_lat: ALEXANDRIA_LAT,
+        location_lon: ALEXANDRIA_LON,
+        temperature_c: num(dailyLog.weatherTempC),
+        humidity_pct: num(dailyLog.weatherHumidity),
+        wind_speed: num(dailyLog.weatherWindSpeed),
         condition: String(dailyLog.weatherCondition || ''),
         heat_risk: String(dailyLog.heatRisk || 'unknown'),
-      }, { onConflict: 'user_id,log_date' }).catch(e => console.warn('weather upsert', e));
+        source: 'openweathermap',
+      }).catch(e => console.warn('weather insert', e));
     }
 
     const cardioDur = num(dailyLog.cardioDuration) || num(dailyLog.manualCardioDuration);
@@ -328,7 +331,7 @@ serve(async (req: Request) => {
       await supabase.from('nutrition_logs').upsert({
         user_id: userId,
         log_date: dateKey,
-        total_calories: num(dailyLog.totalCalories),
+        total_cals: num(dailyLog.totalCalories),
         protein_g: num(dailyLog.proteinG),
         carbs_g: num(dailyLog.carbsG),
         fats_g: num(dailyLog.fatsG),

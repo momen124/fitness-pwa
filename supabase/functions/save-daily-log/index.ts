@@ -142,10 +142,17 @@ serve(async (req: Request) => {
 
         if (data.gearId && (num(data.manualCardioDuration) > 0 || num(data.distanceKm) > 0)) {
             const distKm = num(data.distanceKm) || (num(data.manualCardioDuration) * 0.1);
+            const { data: wsCardio } = await sb.from('workout_sessions')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('log_date', logDate)
+                .eq('session_type', 'cardio')
+                .limit(1).single().catch(() => ({ data: null }));
+
             await sb.from('gear_usage_logs').insert({
-                user_id: userId,
                 gear_item_id: str(data.gearId),
-                log_date: logDate,
+                workout_session_id: wsCardio?.id || null,
+                used_at: logDate,
                 distance_km: distKm
             }).catch(e => console.warn('gear_usage_logs insert skipped', e));
         }

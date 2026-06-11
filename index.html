@@ -19,7 +19,7 @@
 
 </head>
 <body class="mode-alexandria">
-    <div id="auth-overlay" class="auth-overlay" style="display:none">
+    <div id="auth-overlay" class="auth-overlay" style="display:flex">
         <div class="auth-card glass-card">
             <div style="text-align:center;margin-bottom:1.5rem">
                 <h1 style="font-size:1.8rem;margin:0">N=1 Lab</h1>
@@ -358,6 +358,10 @@
                     </div>
                     <div class="strava-oauth-note">
                         <strong>Phase 2 bridge:</strong> the frontend inbox is live; full OAuth token refresh stays in the passive backend so the Strava client secret never ships to the browser.
+                    </div>
+                    <div class="os-metric" style="margin-bottom:12px;">
+                        <span>Connection</span>
+                        <strong id="strava-connection-status">Not connected</strong>
                     </div>
                     <div id="strava-empty-state" class="strava-empty">
                         No imported activities yet. Sync will pull recent cloud rows and rebuild from local Strava/Intervals fields.
@@ -1836,6 +1840,18 @@
                 </div>
 
                 <div class="glass-card mt-4">
+                    <h2>🎨 Display Options</h2>
+                    <div class="toggle-group mt-2">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-show-hormone">
+                            <span class="slider"></span>
+                            <span class="label-text">Show Hormone Cycle Tracking</span>
+                        </label>
+                        <p class="text-sm text-secondary" style="margin-left:50px;">Show/hide the hormone tracking section in the Log tab.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
                     <h2>🚴 Strava Connection</h2>
                     <p class="text-sm text-secondary mb-4">Authorize Strava to auto-import your cardio activities. The server handles OAuth tokens securely.</p>
                     <div id="strava-connection-status" class="mb-4">
@@ -1967,7 +1983,7 @@
                     </details>
                 </div>
 
-                <div class="glass-card mt-4">
+                <div class="glass-card mt-4" id="hormone-section" style="display:none">
                     <h2>🌙 Hormone Cycle Tracking</h2>
                     <p class="text-sm text-secondary mb-3">Track cycle phase, basal temp, and energy for training adjustment.</p>
                     <div class="form-grid">
@@ -2082,10 +2098,22 @@
                 <div class="glass-card mt-4">
                     <h2>📦 Data Management</h2>
                     <div id="auth-info" class="mb-3 text-sm text-secondary"></div>
+                    <div id="settings-sync-time" class="mb-3 text-sm text-secondary">Last sync: never</div>
                     <div class="form-grid">
                         <button class="btn btn-secondary w-full" id="btn-export-full-backup">Export Full Backup (JSON)</button>
                         <button class="btn btn-danger w-full mt-2" id="btn-reset-data">Reset All Local Data</button>
                         <button class="btn btn-secondary w-full mt-2" id="btn-logout" style="display:none">Log Out</button>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-4">
+                    <h2>🔒 Privacy & Data</h2>
+                    <div class="text-sm text-secondary" style="line-height:1.6;">
+                        <p><strong>Where your data lives:</strong> All health data (biomarkers, injuries, hormones, progress photos, logs) is stored locally on this device using IndexedDB. It persists across browser refreshes.</p>
+                        <p style="margin-top:8px;"><strong>Cloud sync:</strong> If you log in (not guest mode), data syncs to your private Supabase account over HTTPS. Only you can access it (row-level security).</p>
+                        <p style="margin-top:8px;"><strong>Third parties:</strong> No data is shared with any third party. Weather and Strava data are fetched for your use only.</p>
+                        <p style="margin-top:8px;"><strong>API keys:</strong> Your OpenWeatherMap key is stored in this browser's localStorage only — never sent to our servers.</p>
+                        <p style="margin-top:8px;"><strong>Control:</strong> Export or delete all your data anytime using the buttons above.</p>
                     </div>
                 </div>
             </section>
